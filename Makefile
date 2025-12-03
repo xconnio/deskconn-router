@@ -5,7 +5,7 @@ lint:
 	golangci-lint run
 
 build:
-	go build github.com/xconnio/deskconn-router/cmd/desconnd
+	go build github.com/xconnio/deskconn-router/cmd/deskconn-router
 
 run:
-	go run github.com/xconnio/deskconn-router/cmd/desconnd
+	go run github.com/xconnio/deskconn-router/cmd/deskconn-router
