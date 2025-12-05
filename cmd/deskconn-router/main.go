@@ -17,9 +17,13 @@ const (
 	procedureCRAVerify        = "io.xconn.deskconn.account.cra.verify"
 	procedureCryptosignVerify = "io.xconn.deskconn.account.cryptosign.verify"
 
-	accountServiceAuthRole  = "xconn:deskconn:cloud:service:account"
+	accountServiceAuthRole  = "xconnio:deskconn:cloud:service:account"
 	accountServiceAuthID    = "deskconn-account-service"
 	accountServicePublicKey = "c98fb454dfda50be26b74818d3c20caf6810970b9de4a01fe5cd6282603400f1"
+
+	webAppAuthRole  = "xconnio:deskconn:app:web"
+	webAppAuthID    = "deskconn-web-app"
+	webAppPublicKey = "3339ee2adba8cb27c6ed72a222645e88475ef96a3704185efa1084ace56f3fd0"
 )
 
 type Authenticator struct {
@@ -73,6 +77,9 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 		if cryptosignRequest.PublicKey() == accountServicePublicKey && cryptosignRequest.AuthID() == accountServiceAuthID {
 			return auth.NewResponse(cryptosignRequest.AuthID(), accountServiceAuthRole, 0)
 		}
+		if cryptosignRequest.PublicKey() == webAppPublicKey && cryptosignRequest.AuthID() == webAppAuthID {
+			return auth.NewResponse(cryptosignRequest.AuthID(), webAppAuthRole, 0)
+		}
 
 		callResp := a.session.Call(procedureCryptosignVerify).Args(request.AuthID(), cryptosignRequest.PublicKey()).Do()
 		if callResp.Err != nil {
@@ -116,6 +123,16 @@ func main() {
 						URI:           "io.xconn.deskconn.",
 						MatchPolicy:   "prefix",
 						AllowRegister: true,
+					},
+				},
+			},
+			{
+				Name: webAppAuthRole,
+				Permissions: []xconn.Permission{
+					{
+						URI:         "io.xconn.deskconn.account.create",
+						MatchPolicy: "exact",
+						AllowCall:   true,
 					},
 				},
 			},
