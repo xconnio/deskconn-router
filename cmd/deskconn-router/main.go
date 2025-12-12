@@ -134,6 +134,11 @@ func main() {
 						MatchPolicy: "exact",
 						AllowCall:   true,
 					},
+					{
+						URI:         "io.xconn.deskconn.account.verify",
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
 				},
 			},
 			{
