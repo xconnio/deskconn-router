@@ -139,6 +139,11 @@ func main() {
 						MatchPolicy: "exact",
 						AllowCall:   true,
 					},
+					{
+						URI:         "io.xconn.deskconn.account.otp.resend",
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
 				},
 			},
 			{
