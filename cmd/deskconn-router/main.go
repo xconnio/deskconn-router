@@ -144,6 +144,16 @@ func main() {
 						MatchPolicy: "exact",
 						AllowCall:   true,
 					},
+					{
+						URI:         "io.xconn.deskconn.account.password.forget",
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
+					{
+						URI:         "io.xconn.deskconn.account.password.reset",
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
 				},
 			},
 			{
