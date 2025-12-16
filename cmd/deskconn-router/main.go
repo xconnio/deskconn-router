@@ -154,6 +154,11 @@ func main() {
 						MatchPolicy: "exact",
 						AllowCall:   true,
 					},
+					{
+						URI:         "io.xconn.deskconn.account.upgrade",
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
 				},
 			},
 			{
