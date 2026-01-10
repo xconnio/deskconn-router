@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go/auth"
+	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/xconn-go"
 )
 
@@ -16,6 +18,7 @@ const (
 
 	procedureCRAVerify        = "io.xconn.deskconn.account.cra.verify"
 	procedureCryptosignVerify = "io.xconn.deskconn.account.cryptosign.verify"
+	procedureDesktopAccess    = "io.xconn.deskconn.desktop.access"
 
 	accountServiceAuthRole  = "xconnio:deskconn:cloud:service:account"
 	accountServiceAuthID    = "deskconn-account-service"
@@ -182,6 +185,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if err := router.SetRealmAuthorizer(realm, &deskconnAuthorizer{session: session}); err != nil {
+		log.Fatal(err)
+	}
+
 	server := xconn.NewServer(router, NewAuthenticator(session), &xconn.ServerConfig{})
 	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, "0.0.0.0:8080")
 	if err != nil {
@@ -194,4 +202,24 @@ func main() {
 	closeChan := make(chan os.Signal, 1)
 	signal.Notify(closeChan, os.Interrupt)
 	<-closeChan
+}
+
+type deskconnAuthorizer struct {
+	session *xconn.Session
+}
+
+func (a *deskconnAuthorizer) Authorize(baseSession xconn.BaseSession, msg messages.Message) (bool, error) {
+	if msg.Type() == messages.MessageTypeCall {
+		callMsg := msg.(*messages.Call)
+		const prefix = "io.xconn.deskconn.deskconnd."
+		if strings.HasPrefix(callMsg.Procedure(), prefix) {
+			rest := strings.TrimPrefix(callMsg.Procedure(), prefix)
+			desktopID := strings.Split(rest, ".")[0]
+			callResp := a.session.Call(procedureDesktopAccess).Args(baseSession.AuthID(), desktopID).Do()
+			if callResp.Err == nil {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
