@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go/auth"
+	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/xconn-go"
 )
 
@@ -16,6 +18,7 @@ const (
 
 	procedureCRAVerify        = "io.xconn.deskconn.account.cra.verify"
 	procedureCryptosignVerify = "io.xconn.deskconn.account.cryptosign.verify"
+	procedureDesktopAccess    = "io.xconn.deskconn.desktop.access"
 
 	accountServiceAuthRole  = "xconnio:deskconn:cloud:service:account"
 	accountServiceAuthID    = "deskconn-account-service"
@@ -161,17 +164,6 @@ func main() {
 					},
 				},
 			},
-			{
-				Name: "user",
-				Permissions: []xconn.Permission{
-					{
-						URI:           "io.xconn.deskconn.",
-						MatchPolicy:   "prefix",
-						AllowCall:     true,
-						AllowRegister: true,
-					},
-				},
-			},
 		},
 	})
 	if err != nil {
@@ -182,6 +174,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if err := router.SetRealmAuthorizer(realm, &deskconnAuthorizer{session: session}); err != nil {
+		log.Fatal(err)
+	}
+
 	server := xconn.NewServer(router, NewAuthenticator(session), &xconn.ServerConfig{})
 	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, "0.0.0.0:8080")
 	if err != nil {
@@ -194,4 +191,56 @@ func main() {
 	closeChan := make(chan os.Signal, 1)
 	signal.Notify(closeChan, os.Interrupt)
 	<-closeChan
+}
+
+type deskconnAuthorizer struct {
+	session *xconn.Session
+}
+
+func (a *deskconnAuthorizer) Authorize(baseSession xconn.BaseSession, msg messages.Message) (bool, error) {
+	const prefix = "io.xconn.deskconn.deskconnd."
+
+	switch baseSession.AuthRole() {
+	case "user":
+		callMessage, ok := msg.(*messages.Call)
+		if !ok {
+			return false, nil
+		}
+
+		if strings.HasPrefix(callMessage.Procedure(), "io.xconn.deskconn.organization.") ||
+			strings.HasPrefix(callMessage.Procedure(), "io.xconn.deskconn.account.") ||
+			strings.HasPrefix(callMessage.Procedure(), "io.xconn.deskconn.desktop.") ||
+			(callMessage.Procedure() == "io.xconn.deskconn.device.key.list") {
+			return true, nil
+		}
+
+		if strings.HasPrefix(callMessage.Procedure(), prefix) {
+			rest := strings.TrimPrefix(callMessage.Procedure(), prefix)
+			desktopID := strings.SplitN(rest, ".", 2)[0]
+
+			callResp := a.session.Call(procedureDesktopAccess).Args(baseSession.AuthID(), desktopID).Do()
+			if callResp.Err == nil {
+				return true, nil
+			}
+		}
+	case "desktop":
+		registerMessage, ok := msg.(*messages.Register)
+		if !ok {
+			return false, nil
+		}
+
+		if strings.HasPrefix(registerMessage.Procedure(), prefix) {
+			rest := strings.TrimPrefix(registerMessage.Procedure(), prefix)
+			desktopID := strings.SplitN(rest, ".", 2)[0]
+
+			if desktopID == baseSession.AuthID() {
+				return true, nil
+			}
+		}
+
+	default:
+		return false, nil
+	}
+
+	return false, nil
 }
