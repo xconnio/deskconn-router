@@ -77,8 +77,12 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 		if !ok {
 			return nil, fmt.Errorf("invalid request")
 		}
-		if cryptosignRequest.PublicKey() == accountServicePublicKey && cryptosignRequest.AuthID() == accountServiceAuthID {
-			return auth.NewResponse(cryptosignRequest.AuthID(), accountServiceAuthRole, 0)
+		if cryptosignRequest.AuthID() == accountServiceAuthID {
+			if cryptosignRequest.PublicKey() == accountServicePublicKey {
+				return auth.NewResponse(cryptosignRequest.AuthID(), accountServiceAuthRole, 0)
+			}
+
+			return nil, fmt.Errorf("invalid private key for account service")
 		}
 		if cryptosignRequest.PublicKey() == webAppPublicKey && cryptosignRequest.AuthID() == webAppAuthID {
 			return auth.NewResponse(cryptosignRequest.AuthID(), webAppAuthRole, 0)
