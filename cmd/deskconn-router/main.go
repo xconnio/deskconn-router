@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -19,6 +20,7 @@ const (
 	procedureCRAVerify        = "io.xconn.deskconn.account.cra.verify"
 	procedureCryptosignVerify = "io.xconn.deskconn.account.cryptosign.verify"
 	procedureDesktopAccess    = "io.xconn.deskconn.desktop.access"
+	procedureAddRealm         = "io.xconn.deskconn.realm.add"
 
 	accountServiceAuthRole  = "xconnio:deskconn:cloud:service:account"
 	accountServiceAuthID    = "deskconn-account-service"
@@ -131,6 +133,11 @@ func main() {
 						MatchPolicy:   "prefix",
 						AllowRegister: true,
 					},
+					{
+						URI:         procedureAddRealm,
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
 				},
 			},
 			{
@@ -178,6 +185,49 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	registerResp := session.Register(procedureAddRealm,
+		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+			if len(invocation.Args()) != 1 {
+				return xconn.NewInvocationError("wamp.error.invalid_arguments", "must be called with 1 argument(realm)")
+			}
+			rlm, err := invocation.ArgString(0)
+			if err != nil {
+				return xconn.NewInvocationError("wamp.error.invalid_argument", err.Error())
+			}
+			err = router.AddRealm(rlm, &xconn.RealmConfig{
+				Roles: []xconn.RealmRole{
+					{
+						Name: "user",
+						Permissions: []xconn.Permission{
+							{
+								URI:         "io.xconn.deskconn.deskconnd.",
+								MatchPolicy: "prefix",
+								AllowCall:   true,
+							},
+						},
+					},
+					{
+						Name: "desktop",
+						Permissions: []xconn.Permission{
+							{
+								URI:           "io.xconn.deskconn.deskconnd.",
+								MatchPolicy:   "prefix",
+								AllowRegister: true,
+							},
+						},
+					},
+				},
+			})
+			if err != nil {
+				return xconn.NewInvocationError("wamp.error.operation_failed", err)
+			}
+			return xconn.NewInvocationResult()
+		}).Do()
+	if registerResp.Err != nil {
+		log.Fatal(registerResp.Err)
+	}
+	fmt.Printf("Registered procedure %s\n", procedureAddRealm)
 
 	if err := router.SetRealmAuthorizer(realm, &deskconnAuthorizer{session: session}); err != nil {
 		log.Fatal(err)
