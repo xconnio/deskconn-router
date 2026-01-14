@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"strings"
 
+	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go/auth"
@@ -117,6 +118,24 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 }
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	path, ok := os.LookupEnv("DESKCONN_DBPATH")
+	if !ok || path == "" {
+		log.Fatalln("SQLITE_DB_PATH not set")
+	}
+	db, err := openReadOnlyDB(path)
+	if err != nil {
+		log.Fatalf("Error opening read-only DB: %v", err)
+	}
+
+	realms, err := getRealms(db)
+	if err != nil {
+		log.Fatalf("Error getting realms from db: %v", err)
+	}
+
 	router, err := xconn.NewRouter(xconn.DefaultRouterConfig())
 	if err != nil {
 		log.Fatal(err)
@@ -179,6 +198,32 @@ func main() {
 	})
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	for _, rlm := range realms {
+		err = router.AddRealm(rlm, &xconn.RealmConfig{
+			Roles: []xconn.RealmRole{
+				{
+					Name: "desktop",
+					Permissions: []xconn.Permission{{
+						URI:           "io.xconn.deskconn.deskconnd.",
+						MatchPolicy:   "prefix",
+						AllowRegister: true,
+					}},
+				},
+				{
+					Name: "user",
+					Permissions: []xconn.Permission{{
+						URI:         "io.xconn.deskconn.deskconnd.",
+						MatchPolicy: "prefix",
+						AllowCall:   true,
+					}},
+				},
+			},
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	session, err := xconn.ConnectInMemory(router, realm)
