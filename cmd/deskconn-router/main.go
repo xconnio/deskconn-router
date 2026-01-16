@@ -126,6 +126,10 @@ func main() {
 	if !ok || path == "" {
 		log.Fatalln("SQLITE_DB_PATH not set")
 	}
+	address, ok := os.LookupEnv("DESKCONN_ROUTER_ADDRESS")
+	if !ok || address == "" {
+		address = "0.0.0.0:8080"
+	}
 	db, err := openReadOnlyDB(path)
 	if err != nil {
 		log.Fatalf("Error opening read-only DB: %v", err)
@@ -279,7 +283,7 @@ func main() {
 	}
 
 	server := xconn.NewServer(router, NewAuthenticator(session), &xconn.ServerConfig{})
-	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, "0.0.0.0:8080")
+	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, address)
 	if err != nil {
 		log.Fatal(err)
 	}
