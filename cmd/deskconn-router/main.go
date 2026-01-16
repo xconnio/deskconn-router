@@ -22,6 +22,7 @@ const (
 	procedureCryptosignVerify = "io.xconn.deskconn.account.cryptosign.verify"
 	procedureDesktopAccess    = "io.xconn.deskconn.desktop.access"
 	procedureAddRealm         = "io.xconn.deskconn.realm.add"
+	procedureRemoveRealm      = "io.xconn.deskconn.realm.remove"
 
 	accountServiceAuthRole  = "xconnio:deskconn:cloud:service:account"
 	accountServiceAuthID    = "deskconn-account-service"
@@ -30,6 +31,8 @@ const (
 	webAppAuthRole  = "xconnio:deskconn:app:web"
 	webAppAuthID    = "deskconn-web-app"
 	webAppPublicKey = "3339ee2adba8cb27c6ed72a222645e88475ef96a3704185efa1084ace56f3fd0"
+
+	ErrInvalidArgument = "wamp.error.invalid_argument"
 )
 
 type Authenticator struct {
@@ -161,6 +164,11 @@ func main() {
 						MatchPolicy: "exact",
 						AllowCall:   true,
 					},
+					{
+						URI:         procedureRemoveRealm,
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
 				},
 			},
 			{
@@ -238,11 +246,11 @@ func main() {
 	registerResp := session.Register(procedureAddRealm,
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
 			if len(invocation.Args()) != 1 {
-				return xconn.NewInvocationError("wamp.error.invalid_arguments", "must be called with 1 argument(realm)")
+				return xconn.NewInvocationError(ErrInvalidArgument, "must be called with single argument(realm)")
 			}
 			rlm, err := invocation.ArgString(0)
 			if err != nil {
-				return xconn.NewInvocationError("wamp.error.invalid_argument", err.Error())
+				return xconn.NewInvocationError(ErrInvalidArgument, err.Error())
 			}
 			err = router.AddRealm(rlm, &xconn.RealmConfig{
 				Roles: []xconn.RealmRole{
@@ -277,6 +285,23 @@ func main() {
 		log.Fatal(registerResp.Err)
 	}
 	fmt.Printf("Registered procedure %s\n", procedureAddRealm)
+
+	removeRealmResp := session.Register(procedureRemoveRealm,
+		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+			if len(invocation.Args()) != 1 {
+				return xconn.NewInvocationError(ErrInvalidArgument, "must be called with single argument(realm)")
+			}
+			userRealm, err := invocation.ArgString(0)
+			if err != nil {
+				return xconn.NewInvocationError(ErrInvalidArgument, err.Error())
+			}
+			router.RemoveRealm(userRealm)
+			return xconn.NewInvocationResult()
+		}).Do()
+	if removeRealmResp.Err != nil {
+		log.Fatal(removeRealmResp.Err)
+	}
+	fmt.Printf("Registered procedure %s\n", procedureRemoveRealm)
 
 	if err := router.SetRealmAuthorizer(realm, &deskconnAuthorizer{session: session}); err != nil {
 		log.Fatal(err)
