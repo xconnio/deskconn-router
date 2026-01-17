@@ -338,6 +338,7 @@ func (a *deskconnAuthorizer) Authorize(baseSession xconn.BaseSession, msg messag
 		if strings.HasPrefix(callMessage.Procedure(), "io.xconn.deskconn.organization.") ||
 			strings.HasPrefix(callMessage.Procedure(), "io.xconn.deskconn.account.") ||
 			strings.HasPrefix(callMessage.Procedure(), "io.xconn.deskconn.desktop.") ||
+			strings.HasPrefix(callMessage.Procedure(), "io.xconn.deskconn.device.") ||
 			(callMessage.Procedure() == "io.xconn.deskconn.device.key.list") {
 			return true, nil
 		}
