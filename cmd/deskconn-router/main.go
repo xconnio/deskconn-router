@@ -212,8 +212,18 @@ func main() {
 						AllowCall:   true,
 					},
 					{
-						URI:         "io.xconn.deskconn.account.",
-						MatchPolicy: "prefix",
+						URI:         "io.xconn.deskconn.account.get",
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
+					{
+						URI:         "io.xconn.deskconn.account.update",
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
+					{
+						URI:         "io.xconn.deskconn.account.delete",
+						MatchPolicy: "exact",
 						AllowCall:   true,
 					},
 					{
