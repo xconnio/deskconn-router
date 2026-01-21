@@ -49,7 +49,7 @@ func (a *Authenticator) Methods() []auth.Method {
 func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error) {
 	switch request.AuthMethod() {
 	case auth.MethodCRA:
-		callResp := a.session.Call(procedureCRAVerify).Arg(request.AuthID()).Do()
+		callResp := a.session.Call(procedureCRAVerify).Args(request.AuthID(), request.Realm()).Do()
 		if callResp.Err != nil {
 			return nil, callResp.Err
 		}
@@ -91,7 +91,8 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 			return auth.NewResponse(cryptosignRequest.AuthID(), webAppAuthRole, 0)
 		}
 
-		callResp := a.session.Call(procedureCryptosignVerify).Args(request.AuthID(), cryptosignRequest.PublicKey()).Do()
+		callResp := a.session.Call(procedureCryptosignVerify).Args(request.AuthID(), cryptosignRequest.PublicKey(),
+			request.Realm()).Do()
 		if callResp.Err != nil {
 			return nil, callResp.Err
 		}
