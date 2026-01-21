@@ -245,10 +245,16 @@ func main() {
 	}
 
 	for _, rlm := range realms {
+		authid, ok := extractAuthIDFromRealm(rlm)
+		if !ok {
+			log.Printf("WARNING: skipping invalid realm: '%s'", rlm)
+			continue
+		}
+
 		err = router.AddRealm(rlm, &xconn.RealmConfig{
 			Roles: []xconn.RealmRole{
 				{
-					Name: "desktop",
+					Name: fmt.Sprintf("xconnio:deskconn:desktop:%s", authid),
 					Permissions: []xconn.Permission{{
 						URI:           "io.xconn.deskconn.deskconnd.",
 						MatchPolicy:   "prefix",
@@ -284,6 +290,10 @@ func main() {
 			if err != nil {
 				return xconn.NewInvocationError(ErrInvalidArgument, err.Error())
 			}
+			authid, ok := extractAuthIDFromRealm(rlm)
+			if !ok {
+				return xconn.NewInvocationError(ErrInvalidArgument, "error extracting authid from realm")
+			}
 			err = router.AddRealm(rlm, &xconn.RealmConfig{
 				Roles: []xconn.RealmRole{
 					{
@@ -297,7 +307,7 @@ func main() {
 						},
 					},
 					{
-						Name: "desktop",
+						Name: fmt.Sprintf("xconnio:deskconn:desktop:%s", authid),
 						Permissions: []xconn.Permission{
 							{
 								URI:           "io.xconn.deskconn.deskconnd.",
