@@ -94,8 +94,8 @@ github.com/xconnio/wampproto-go v0.0.0-20251205113711-968e34250b9a h1:BKFEdKgWDc
 github.com/xconnio/wampproto-go v0.0.0-20251205113711-968e34250b9a/go.mod h1:k2I4x+dOyJq5XW6SHbnwrqJEuRf/lO9rbF5habINuMM=
 github.com/xconnio/xconn-go v0.0.0-20251108143232-364781a4f29a h1:Yj50wOwocWtMZZ7marGK0s1NsRlhZIC1C2sk4xBDX8w=
 github.com/xconnio/xconn-go v0.0.0-20251108143232-364781a4f29a/go.mod h1:8tnNmQgOIlEqF/QesbPQMP2NeI42LP/6lIJG6vq4TwQ=
-github.com/xconnio/xconn-webrtc-go v0.0.0-20251105133629-8fb9af61ad04 h1:EDPIzf/9wsndUn1mAyoQe4JItrWJFK62uEzHRgaaEkU=
-github.com/xconnio/xconn-webrtc-go v0.0.0-20251105133629-8fb9af61ad04/go.mod h1:tYFsDDCAoyCFAzwXQZ8uAOCkmdmf0HNP/PA+rpjl+hE=
+github.com/xconnio/xconn-webrtc-go v0.0.0-20260129135523-38834188956e h1:tjVruw1hUhLNREAOgCOFAc9ThZi06nOGzEykNDDD6n0=
+github.com/xconnio/xconn-webrtc-go v0.0.0-20260129135523-38834188956e/go.mod h1:tYFsDDCAoyCFAzwXQZ8uAOCkmdmf0HNP/PA+rpjl+hE=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
