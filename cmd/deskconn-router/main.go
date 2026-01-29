@@ -10,7 +10,9 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go/auth"
+	"github.com/xconnio/wampproto-go/serializers"
 	"github.com/xconnio/xconn-go"
+	"github.com/xconnio/xconn-webrtc-go"
 )
 
 const (
@@ -30,6 +32,10 @@ const (
 	webAppPublicKey = "3339ee2adba8cb27c6ed72a222645e88475ef96a3704185efa1084ace56f3fd0"
 
 	ErrInvalidArgument = "wamp.error.invalid_argument"
+
+	procedureWebRTCOffer     = "io.xconn.webrtc.offer"
+	topicOffererOnCandidate  = "io.xconn.webrtc.offerer.on_candidate"
+	topicAnswererOnCandidate = "io.xconn.webrtc.answerer.on_candidate"
 )
 
 type Authenticator struct {
@@ -237,6 +243,21 @@ func main() {
 						MatchPolicy: "prefix",
 						AllowCall:   true,
 					},
+					{
+						URI:         procedureWebRTCOffer,
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
+					{
+						URI:          topicAnswererOnCandidate,
+						MatchPolicy:  "exact",
+						AllowPublish: true,
+					},
+					{
+						URI:            topicOffererOnCandidate,
+						MatchPolicy:    "exact",
+						AllowSubscribe: true,
+					},
 				},
 			},
 		},
@@ -345,6 +366,20 @@ func main() {
 		log.Fatal(removeRealmResp.Err)
 	}
 	fmt.Printf("Registered procedure %s\n", procedureRemoveRealm)
+
+	webRtcManager := xconnwebrtc.NewWebRTCHandler()
+	cfg := &xconnwebrtc.ProviderConfig{
+		Session:                     session,
+		ProcedureHandleOffer:        procedureWebRTCOffer,
+		TopicHandleRemoteCandidates: topicAnswererOnCandidate,
+		TopicPublishLocalCandidate:  topicOffererOnCandidate,
+		Serializer:                  &serializers.CBORSerializer{},
+		Authenticator:               NewAuthenticator(session),
+		Router:                      router,
+	}
+	if err := webRtcManager.Setup(cfg); err != nil {
+		log.Fatal("Failed to setup webRtc provider:", err)
+	}
 
 	server := xconn.NewServer(router, NewAuthenticator(session), &xconn.ServerConfig{})
 	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, address)
