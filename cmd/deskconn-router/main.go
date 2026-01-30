@@ -343,6 +343,21 @@ func main() {
 								MatchPolicy: "prefix",
 								AllowCall:   true,
 							},
+							{
+								URI:         procedureWebRTCOffer,
+								MatchPolicy: "exact",
+								AllowCall:   true,
+							},
+							{
+								URI:          topicAnswererOnCandidate,
+								MatchPolicy:  "exact",
+								AllowPublish: true,
+							},
+							{
+								URI:            topicOffererOnCandidate,
+								MatchPolicy:    "exact",
+								AllowSubscribe: true,
+							},
 						},
 					},
 					{
@@ -352,6 +367,21 @@ func main() {
 								URI:           "io.xconn.deskconn.deskconnd.",
 								MatchPolicy:   "prefix",
 								AllowRegister: true,
+							},
+							{
+								URI:           procedureWebRTCOffer,
+								MatchPolicy:   "exact",
+								AllowRegister: true,
+							},
+							{
+								URI:            topicAnswererOnCandidate,
+								MatchPolicy:    "exact",
+								AllowSubscribe: true,
+							},
+							{
+								URI:          topicOffererOnCandidate,
+								MatchPolicy:  "exact",
+								AllowPublish: true,
 							},
 						},
 					},
