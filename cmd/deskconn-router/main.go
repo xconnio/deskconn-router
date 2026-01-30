@@ -10,9 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go/auth"
-	"github.com/xconnio/wampproto-go/serializers"
 	"github.com/xconnio/xconn-go"
-	"github.com/xconnio/xconn-webrtc-go"
 )
 
 const (
@@ -243,21 +241,6 @@ func main() {
 						MatchPolicy: "prefix",
 						AllowCall:   true,
 					},
-					{
-						URI:         procedureWebRTCOffer,
-						MatchPolicy: "exact",
-						AllowCall:   true,
-					},
-					{
-						URI:          topicAnswererOnCandidate,
-						MatchPolicy:  "exact",
-						AllowPublish: true,
-					},
-					{
-						URI:            topicOffererOnCandidate,
-						MatchPolicy:    "exact",
-						AllowSubscribe: true,
-					},
 				},
 			},
 		},
@@ -277,19 +260,53 @@ func main() {
 			Roles: []xconn.RealmRole{
 				{
 					Name: fmt.Sprintf("xconnio:deskconn:desktop:%s", authid),
-					Permissions: []xconn.Permission{{
-						URI:           "io.xconn.deskconn.deskconnd.",
-						MatchPolicy:   "prefix",
-						AllowRegister: true,
-					}},
+					Permissions: []xconn.Permission{
+						{
+							URI:           "io.xconn.deskconn.deskconnd.",
+							MatchPolicy:   "prefix",
+							AllowRegister: true,
+						},
+						{
+							URI:           procedureWebRTCOffer,
+							MatchPolicy:   "exact",
+							AllowRegister: true,
+						},
+						{
+							URI:            topicAnswererOnCandidate,
+							MatchPolicy:    "exact",
+							AllowSubscribe: true,
+						},
+						{
+							URI:          topicOffererOnCandidate,
+							MatchPolicy:  "exact",
+							AllowPublish: true,
+						},
+					},
 				},
 				{
 					Name: "user",
-					Permissions: []xconn.Permission{{
-						URI:         "io.xconn.deskconn.deskconnd.",
-						MatchPolicy: "prefix",
-						AllowCall:   true,
-					}},
+					Permissions: []xconn.Permission{
+						{
+							URI:         "io.xconn.deskconn.deskconnd.",
+							MatchPolicy: "prefix",
+							AllowCall:   true,
+						},
+						{
+							URI:         procedureWebRTCOffer,
+							MatchPolicy: "exact",
+							AllowCall:   true,
+						},
+						{
+							URI:          topicAnswererOnCandidate,
+							MatchPolicy:  "exact",
+							AllowPublish: true,
+						},
+						{
+							URI:            topicOffererOnCandidate,
+							MatchPolicy:    "exact",
+							AllowSubscribe: true,
+						},
+					},
 				},
 			},
 		})
@@ -366,20 +383,6 @@ func main() {
 		log.Fatal(removeRealmResp.Err)
 	}
 	fmt.Printf("Registered procedure %s\n", procedureRemoveRealm)
-
-	webRtcManager := xconnwebrtc.NewWebRTCHandler()
-	cfg := &xconnwebrtc.ProviderConfig{
-		Session:                     session,
-		ProcedureHandleOffer:        procedureWebRTCOffer,
-		TopicHandleRemoteCandidates: topicAnswererOnCandidate,
-		TopicPublishLocalCandidate:  topicOffererOnCandidate,
-		Serializer:                  &serializers.CBORSerializer{},
-		Authenticator:               NewAuthenticator(session),
-		Router:                      router,
-	}
-	if err := webRtcManager.Setup(cfg); err != nil {
-		log.Fatal("Failed to setup webRtc provider:", err)
-	}
 
 	server := xconn.NewServer(router, NewAuthenticator(session), &xconn.ServerConfig{})
 	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, address)
