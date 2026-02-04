@@ -222,6 +222,11 @@ func main() {
 						AllowCall:   true,
 					},
 					{
+						URI:         "io.xconn.deskconn.account.principal.",
+						MatchPolicy: "prefix",
+						AllowCall:   true,
+					},
+					{
 						URI:         "io.xconn.deskconn.account.update",
 						MatchPolicy: "exact",
 						AllowCall:   true,
