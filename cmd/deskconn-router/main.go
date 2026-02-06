@@ -30,6 +30,7 @@ const (
 	webAppPublicKey = "3339ee2adba8cb27c6ed72a222645e88475ef96a3704185efa1084ace56f3fd0"
 
 	ErrInvalidArgument = "wamp.error.invalid_argument"
+	ErrOperationFailed = "wamp.error.operation_failed"
 
 	procedureWebRTCOffer     = "io.xconn.webrtc.offer"
 	topicOffererOnCandidate  = "io.xconn.webrtc.offerer.on_candidate"
@@ -255,67 +256,7 @@ func main() {
 	}
 
 	for _, rlm := range realms {
-		authid, ok := extractAuthIDFromRealm(rlm)
-		if !ok {
-			log.Printf("WARNING: skipping invalid realm: '%s'", rlm)
-			continue
-		}
-
-		err = router.AddRealm(rlm, &xconn.RealmConfig{
-			Roles: []xconn.RealmRole{
-				{
-					Name: fmt.Sprintf("xconnio:deskconn:desktop:%s", authid),
-					Permissions: []xconn.Permission{
-						{
-							URI:           "io.xconn.deskconn.deskconnd.",
-							MatchPolicy:   "prefix",
-							AllowRegister: true,
-						},
-						{
-							URI:           procedureWebRTCOffer,
-							MatchPolicy:   "exact",
-							AllowRegister: true,
-						},
-						{
-							URI:            topicAnswererOnCandidate,
-							MatchPolicy:    "exact",
-							AllowSubscribe: true,
-						},
-						{
-							URI:          topicOffererOnCandidate,
-							MatchPolicy:  "exact",
-							AllowPublish: true,
-						},
-					},
-				},
-				{
-					Name: "user",
-					Permissions: []xconn.Permission{
-						{
-							URI:         "io.xconn.deskconn.deskconnd.",
-							MatchPolicy: "prefix",
-							AllowCall:   true,
-						},
-						{
-							URI:         procedureWebRTCOffer,
-							MatchPolicy: "exact",
-							AllowCall:   true,
-						},
-						{
-							URI:          topicAnswererOnCandidate,
-							MatchPolicy:  "exact",
-							AllowPublish: true,
-						},
-						{
-							URI:            topicOffererOnCandidate,
-							MatchPolicy:    "exact",
-							AllowSubscribe: true,
-						},
-					},
-				},
-			},
-		})
-		if err != nil {
+		if err := addRealm(router, rlm); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -334,66 +275,8 @@ func main() {
 			if err != nil {
 				return xconn.NewInvocationError(ErrInvalidArgument, err.Error())
 			}
-			authid, ok := extractAuthIDFromRealm(rlm)
-			if !ok {
-				return xconn.NewInvocationError(ErrInvalidArgument, "error extracting authid from realm")
-			}
-			err = router.AddRealm(rlm, &xconn.RealmConfig{
-				Roles: []xconn.RealmRole{
-					{
-						Name: "user",
-						Permissions: []xconn.Permission{
-							{
-								URI:         "io.xconn.deskconn.deskconnd.",
-								MatchPolicy: "prefix",
-								AllowCall:   true,
-							},
-							{
-								URI:         procedureWebRTCOffer,
-								MatchPolicy: "exact",
-								AllowCall:   true,
-							},
-							{
-								URI:          topicAnswererOnCandidate,
-								MatchPolicy:  "exact",
-								AllowPublish: true,
-							},
-							{
-								URI:            topicOffererOnCandidate,
-								MatchPolicy:    "exact",
-								AllowSubscribe: true,
-							},
-						},
-					},
-					{
-						Name: fmt.Sprintf("xconnio:deskconn:desktop:%s", authid),
-						Permissions: []xconn.Permission{
-							{
-								URI:           "io.xconn.deskconn.deskconnd.",
-								MatchPolicy:   "prefix",
-								AllowRegister: true,
-							},
-							{
-								URI:           procedureWebRTCOffer,
-								MatchPolicy:   "exact",
-								AllowRegister: true,
-							},
-							{
-								URI:            topicAnswererOnCandidate,
-								MatchPolicy:    "exact",
-								AllowSubscribe: true,
-							},
-							{
-								URI:          topicOffererOnCandidate,
-								MatchPolicy:  "exact",
-								AllowPublish: true,
-							},
-						},
-					},
-				},
-			})
-			if err != nil {
-				return xconn.NewInvocationError("wamp.error.operation_failed", err)
+			if err := addRealm(router, rlm); err != nil {
+				return xconn.NewInvocationError(ErrOperationFailed, err)
 			}
 			return xconn.NewInvocationResult()
 		}).Do()
@@ -431,4 +314,83 @@ func main() {
 	closeChan := make(chan os.Signal, 1)
 	signal.Notify(closeChan, os.Interrupt)
 	<-closeChan
+}
+
+func addRealm(router *xconn.Router, rlm string) error {
+	authid, ok := extractAuthIDFromRealm(rlm)
+	if !ok {
+		log.Printf("WARNING: skipping invalid realm: '%s'", rlm)
+		return nil
+	}
+
+	err := router.AddRealm(rlm, &xconn.RealmConfig{
+		Roles: []xconn.RealmRole{
+			{
+				Name: fmt.Sprintf("xconnio:deskconn:desktop:%s", authid),
+				Permissions: []xconn.Permission{
+					{
+						URI:           "io.xconn.deskconn.deskconnd.",
+						MatchPolicy:   "prefix",
+						AllowRegister: true,
+					},
+					{
+						URI:           procedureWebRTCOffer,
+						MatchPolicy:   "exact",
+						AllowRegister: true,
+					},
+					{
+						URI:            topicAnswererOnCandidate,
+						MatchPolicy:    "exact",
+						AllowSubscribe: true,
+					},
+					{
+						URI:          topicOffererOnCandidate,
+						MatchPolicy:  "exact",
+						AllowPublish: true,
+					},
+					{
+						URI:         "io.xconn.deskconn.desktop.access.key.list",
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
+					{
+						URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.add", authid),
+						MatchPolicy:    "exact",
+						AllowSubscribe: true,
+					},
+					{
+						URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.remove", authid),
+						MatchPolicy:    "exact",
+						AllowSubscribe: true,
+					},
+				},
+			},
+			{
+				Name: "user",
+				Permissions: []xconn.Permission{
+					{
+						URI:         "io.xconn.deskconn.deskconnd.",
+						MatchPolicy: "prefix",
+						AllowCall:   true,
+					},
+					{
+						URI:         procedureWebRTCOffer,
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
+					{
+						URI:          topicAnswererOnCandidate,
+						MatchPolicy:  "exact",
+						AllowPublish: true,
+					},
+					{
+						URI:            topicOffererOnCandidate,
+						MatchPolicy:    "exact",
+						AllowSubscribe: true,
+					},
+				},
+			},
+		},
+	})
+	return err
 }
