@@ -348,21 +348,6 @@ func addRealm(router *xconn.Router, rlm string) error {
 						MatchPolicy:  "exact",
 						AllowPublish: true,
 					},
-					{
-						URI:         "io.xconn.deskconn.desktop.access.key.list",
-						MatchPolicy: "exact",
-						AllowCall:   true,
-					},
-					{
-						URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.add", authid),
-						MatchPolicy:    "exact",
-						AllowSubscribe: true,
-					},
-					{
-						URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.remove", authid),
-						MatchPolicy:    "exact",
-						AllowSubscribe: true,
-					},
 				},
 			},
 			{
@@ -389,6 +374,30 @@ func addRealm(router *xconn.Router, rlm string) error {
 						AllowSubscribe: true,
 					},
 				},
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = router.AddRealmRole(realm, xconn.RealmRole{
+		Name: fmt.Sprintf("xconnio:deskconn:desktop:%s", authid),
+		Permissions: []xconn.Permission{
+			{
+				URI:         "io.xconn.deskconn.desktop.access.key.list",
+				MatchPolicy: "exact",
+				AllowCall:   true,
+			},
+			{
+				URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.add", authid),
+				MatchPolicy:    "exact",
+				AllowSubscribe: true,
+			},
+			{
+				URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.remove", authid),
+				MatchPolicy:    "exact",
+				AllowSubscribe: true,
 			},
 		},
 	})
