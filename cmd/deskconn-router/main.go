@@ -172,6 +172,16 @@ func main() {
 						MatchPolicy: "exact",
 						AllowCall:   true,
 					},
+					{
+						URI:          "io.xconn.deskconn.desktop.*.key.add",
+						MatchPolicy:  "wildcard",
+						AllowPublish: true,
+					},
+					{
+						URI:          "io.xconn.deskconn.desktop.*.key.remove",
+						MatchPolicy:  "wildcard",
+						AllowPublish: true,
+					},
 				},
 			},
 			{
