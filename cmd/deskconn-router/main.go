@@ -35,6 +35,8 @@ const (
 	procedureWebRTCOffer     = "io.xconn.webrtc.offer"
 	topicOffererOnCandidate  = "io.xconn.webrtc.offerer.on_candidate"
 	topicAnswererOnCandidate = "io.xconn.webrtc.answerer.on_candidate"
+
+	desktopAuthRoleFormat = "xconnio:deskconn:desktop:%s"
 )
 
 type Authenticator struct {
@@ -295,6 +297,13 @@ func main() {
 				return xconn.NewInvocationError(ErrInvalidArgument, err.Error())
 			}
 			router.RemoveRealm(userRealm)
+			authid, ok := extractAuthIDFromRealm(userRealm)
+			if !ok {
+				return xconn.NewInvocationError(ErrInvalidArgument, "invalid realm")
+			}
+			if err := router.RemoveRealmRole(realm, fmt.Sprintf(desktopAuthRoleFormat, authid)); err != nil {
+				return xconn.NewInvocationError(ErrOperationFailed, err)
+			}
 			return xconn.NewInvocationResult()
 		}).Do()
 	if removeRealmResp.Err != nil {
@@ -326,7 +335,7 @@ func addRealm(router *xconn.Router, rlm string) error {
 	err := router.AddRealm(rlm, &xconn.RealmConfig{
 		Roles: []xconn.RealmRole{
 			{
-				Name: fmt.Sprintf("xconnio:deskconn:desktop:%s", authid),
+				Name: fmt.Sprintf(desktopAuthRoleFormat, authid),
 				Permissions: []xconn.Permission{
 					{
 						URI:           "io.xconn.deskconn.deskconnd.",
@@ -382,7 +391,7 @@ func addRealm(router *xconn.Router, rlm string) error {
 	}
 
 	err = router.AddRealmRole(realm, xconn.RealmRole{
-		Name: fmt.Sprintf("xconnio:deskconn:desktop:%s", authid),
+		Name: fmt.Sprintf(desktopAuthRoleFormat, authid),
 		Permissions: []xconn.Permission{
 			{
 				URI:         "io.xconn.deskconn.desktop.access.key.list",
