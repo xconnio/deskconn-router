@@ -343,6 +343,7 @@ func addRealm(router *xconn.Router, rlm string) error {
 	}
 
 	err := router.AddRealm(rlm, &xconn.RealmConfig{
+		AutoDiscloseCaller: true,
 		Roles: []xconn.RealmRole{
 			{
 				Name: fmt.Sprintf(desktopAuthRoleFormat, authid),
