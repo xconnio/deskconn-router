@@ -184,6 +184,11 @@ func main() {
 						MatchPolicy:  "wildcard",
 						AllowPublish: true,
 					},
+					{
+						URI:          "io.xconn.deskconn.desktop.*.detach",
+						MatchPolicy:  "wildcard",
+						AllowPublish: true,
+					},
 				},
 			},
 			{
