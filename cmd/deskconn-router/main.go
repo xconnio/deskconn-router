@@ -184,6 +184,11 @@ func main() {
 						MatchPolicy:  "wildcard",
 						AllowPublish: true,
 					},
+					{
+						URI:          "io.xconn.deskconn.desktop.*.detach",
+						MatchPolicy:  "wildcard",
+						AllowPublish: true,
+					},
 				},
 			},
 			{
@@ -416,6 +421,11 @@ func addRealm(router *xconn.Router, rlm string) error {
 			},
 			{
 				URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.remove", authid),
+				MatchPolicy:    "exact",
+				AllowSubscribe: true,
+			},
+			{
+				URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.detach", authid),
 				MatchPolicy:    "exact",
 				AllowSubscribe: true,
 			},
