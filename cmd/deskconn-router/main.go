@@ -189,6 +189,11 @@ func main() {
 						MatchPolicy:  "wildcard",
 						AllowPublish: true,
 					},
+					{
+						URI:         "wamp.session.kill_by_authid",
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
 				},
 			},
 			{
