@@ -152,9 +152,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err = router.EnableMetaAPI(realm); err != nil {
-		log.Fatal(err)
-	}
 
 	err = router.AddRealm(realm, &xconn.RealmConfig{
 		AutoDiscloseCaller: true,
@@ -272,6 +269,10 @@ func main() {
 		},
 	})
 	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := router.EnableMetaAPI(realm); err != nil {
 		log.Fatal(err)
 	}
 
