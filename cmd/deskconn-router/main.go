@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
@@ -335,7 +336,10 @@ func main() {
 	}
 	fmt.Printf("Registered procedure %s\n", procedureRemoveRealm)
 
-	server := xconn.NewServer(router, NewAuthenticator(session), &xconn.ServerConfig{})
+	server := xconn.NewServer(router, NewAuthenticator(session), &xconn.ServerConfig{
+		KeepAliveInterval: 30 * time.Second,
+		KeepAliveTimeout:  10 * time.Second,
+	})
 	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, address)
 	if err != nil {
 		log.Fatal(err)
