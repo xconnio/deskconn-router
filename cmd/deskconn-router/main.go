@@ -30,6 +30,10 @@ const (
 	webAppAuthID    = "deskconn-web-app"
 	webAppPublicKey = "3339ee2adba8cb27c6ed72a222645e88475ef96a3704185efa1084ace56f3fd0"
 
+	ciAuthRole  = "xconnio:deskconn:ci"
+	ciAuthID    = "deskconn-ci"
+	ciPublicKey = "af12b0d04d8e2e468e31115d6c7ca665ff39d7dd78455ae2e3f73f61962e16bb"
+
 	ErrInvalidArgument = "wamp.error.invalid_argument"
 	ErrOperationFailed = "wamp.error.operation_failed"
 
@@ -97,6 +101,10 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 		}
 		if cryptosignRequest.PublicKey() == webAppPublicKey && cryptosignRequest.AuthID() == webAppAuthID {
 			return auth.NewResponse(cryptosignRequest.AuthID(), webAppAuthRole, 0)
+		}
+
+		if cryptosignRequest.PublicKey() == ciPublicKey && cryptosignRequest.AuthID() == ciAuthID {
+			return auth.NewResponse(cryptosignRequest.AuthID(), ciAuthRole, 0)
 		}
 
 		callResp := a.session.Call(procedureCryptosignVerify).Args(request.AuthID(), cryptosignRequest.PublicKey(),
@@ -227,6 +235,16 @@ func main() {
 					},
 					{
 						URI:         "io.xconn.deskconn.account.upgrade",
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
+				},
+			},
+			{
+				Name: ciAuthRole,
+				Permissions: []xconn.Permission{
+					{
+						URI:         "io.xconn.deskconn.app.update",
 						MatchPolicy: "exact",
 						AllowCall:   true,
 					},
