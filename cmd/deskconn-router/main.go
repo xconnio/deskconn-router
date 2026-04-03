@@ -288,6 +288,11 @@ func main() {
 						MatchPolicy: "prefix",
 						AllowCall:   true,
 					},
+					{
+						URI:         "io.xconn.deskconn.app.",
+						MatchPolicy: "prefix",
+						AllowCall:   true,
+					},
 				},
 			},
 		},
