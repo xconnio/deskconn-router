@@ -293,6 +293,11 @@ func main() {
 						MatchPolicy: "prefix",
 						AllowCall:   true,
 					},
+					{
+						URI:         "io.xconn.deskconn.coturn.credentials.create",
+						MatchPolicy: "exact",
+						AllowCall:   true,
+					},
 				},
 			},
 		},
