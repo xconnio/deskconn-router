@@ -21,6 +21,7 @@ const (
 	procedureCryptosignVerify = "io.xconn.deskconn.account.cryptosign.verify"
 	procedureAddRealm         = "io.xconn.deskconn.realm.add"
 	procedureRemoveRealm      = "io.xconn.deskconn.realm.remove"
+	procedureCoturnCreate     = "io.xconn.deskconn.coturn.credentials.create"
 
 	accountServiceAuthRole  = "xconnio:deskconn:cloud:service:account"
 	accountServiceAuthID    = "deskconn-account-service"
@@ -294,7 +295,7 @@ func main() {
 						AllowCall:   true,
 					},
 					{
-						URI:         "io.xconn.deskconn.coturn.credentials.create",
+						URI:         procedureCoturnCreate,
 						MatchPolicy: "exact",
 						AllowCall:   true,
 					},
@@ -413,6 +414,11 @@ func addRealm(router *xconn.Router, rlm string) error {
 						URI:          topicOffererOnCandidate,
 						MatchPolicy:  "exact",
 						AllowPublish: true,
+					},
+					{
+						URI:         procedureCoturnCreate,
+						MatchPolicy: "exact",
+						AllowCall:   true,
 					},
 				},
 			},
