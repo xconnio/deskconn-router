@@ -415,11 +415,6 @@ func addRealm(router *xconn.Router, rlm string) error {
 						MatchPolicy:  "exact",
 						AllowPublish: true,
 					},
-					{
-						URI:         procedureCoturnCreate,
-						MatchPolicy: "exact",
-						AllowCall:   true,
-					},
 				},
 			},
 			{
@@ -475,6 +470,11 @@ func addRealm(router *xconn.Router, rlm string) error {
 				URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.detach", authid),
 				MatchPolicy:    "exact",
 				AllowSubscribe: true,
+			},
+			{
+				URI:         procedureCoturnCreate,
+				MatchPolicy: "exact",
+				AllowCall:   true,
 			},
 		},
 	})
