@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
-
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -13,13 +11,17 @@ func (Desktops) TableName() string {
 	return "desktops"
 }
 
-func openReadOnlyDB(path string) (*gorm.DB, error) {
-	dsn := fmt.Sprintf("file:%s?mode=ro&_busy_timeout=5000", path)
-	return gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+type Desktop struct {
+	AuthID string `gorm:"column:authid"`
+	Realm  string `gorm:"column:realm"`
 }
 
-func getRealms(db *gorm.DB) ([]string, error) {
-	var realms []string
-	err := db.Model(&Desktops{}).Pluck("realm", &realms).Error
-	return realms, err
+func openDB(databaseURL string) (*gorm.DB, error) {
+	return gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
+}
+
+func getDesktops(db *gorm.DB) ([]Desktop, error) {
+	var desktops []Desktop
+	err := db.Model(&Desktops{}).Select("authid", "realm").Find(&desktops).Error
+	return desktops, err
 }

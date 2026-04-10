@@ -140,22 +140,22 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	path, ok := os.LookupEnv("DESKCONN_DBPATH")
-	if !ok || path == "" {
-		log.Fatalln("SQLITE_DB_PATH not set")
+	databaseURL, ok := os.LookupEnv("DESKCONN_POSTGRES_URL")
+	if !ok || databaseURL == "" {
+		log.Fatalln("DESKCONN_POSTGRES_URL not set")
 	}
 	address, ok := os.LookupEnv("DESKCONN_ROUTER_ADDRESS")
 	if !ok || address == "" {
 		address = "0.0.0.0:8080"
 	}
-	db, err := openReadOnlyDB(path)
+	db, err := openDB(databaseURL)
 	if err != nil {
-		log.Fatalf("Error opening read-only DB: %v", err)
+		log.Fatalf("Error opening database: %v", err)
 	}
 
-	realms, err := getRealms(db)
+	desktops, err := getDesktops(db)
 	if err != nil {
-		log.Fatalf("Error getting realms from db: %v", err)
+		log.Fatalf("Error getting desktops from db: %v", err)
 	}
 
 	router, err := xconn.NewRouter(xconn.DefaultRouterConfig())
@@ -311,8 +311,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	for _, rlm := range realms {
-		if err := addRealm(router, rlm); err != nil {
+	for _, desktop := range desktops {
+		if err := addRealm(router, desktop.Realm, desktop.AuthID); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -324,14 +324,18 @@ func main() {
 
 	registerResp := session.Register(procedureAddRealm,
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			if len(invocation.Args()) != 1 {
-				return xconn.NewInvocationError(ErrInvalidArgument, "must be called with single argument(realm)")
+			if len(invocation.Args()) != 2 {
+				return xconn.NewInvocationError(ErrInvalidArgument, "must be called with two arguments(realm and authid)")
 			}
 			rlm, err := invocation.ArgString(0)
 			if err != nil {
-				return xconn.NewInvocationError(ErrInvalidArgument, err.Error())
+				return xconn.NewInvocationError(ErrInvalidArgument, err)
 			}
-			if err := addRealm(router, rlm); err != nil {
+			authid, err := invocation.ArgString(1)
+			if err != nil {
+				return xconn.NewInvocationError(ErrInvalidArgument, err)
+			}
+			if err := addRealm(router, rlm, authid); err != nil {
 				return xconn.NewInvocationError(ErrOperationFailed, err)
 			}
 			return xconn.NewInvocationResult()
@@ -343,17 +347,17 @@ func main() {
 
 	removeRealmResp := session.Register(procedureRemoveRealm,
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			if len(invocation.Args()) != 1 {
-				return xconn.NewInvocationError(ErrInvalidArgument, "must be called with single argument(realm)")
+			if len(invocation.Args()) != 2 {
+				return xconn.NewInvocationError(ErrInvalidArgument, "must be called with two argument(realm and authid)")
 			}
 			userRealm, err := invocation.ArgString(0)
 			if err != nil {
 				return xconn.NewInvocationError(ErrInvalidArgument, err.Error())
 			}
 			router.RemoveRealm(userRealm)
-			authid, ok := extractAuthIDFromRealm(userRealm)
-			if !ok {
-				return xconn.NewInvocationError(ErrInvalidArgument, "invalid realm")
+			authid, err := invocation.ArgString(1)
+			if err != nil {
+				return xconn.NewInvocationError(ErrInvalidArgument, err)
 			}
 			if err := router.RemoveRealmRole(realm, fmt.Sprintf(desktopAuthRoleFormat, authid)); err != nil {
 				return xconn.NewInvocationError(ErrOperationFailed, err)
@@ -382,13 +386,7 @@ func main() {
 	<-closeChan
 }
 
-func addRealm(router *xconn.Router, rlm string) error {
-	authid, ok := extractAuthIDFromRealm(rlm)
-	if !ok {
-		log.Printf("WARNING: skipping invalid realm: '%s'", rlm)
-		return nil
-	}
-
+func addRealm(router *xconn.Router, rlm string, authid string) error {
 	err := router.AddRealm(rlm, &xconn.RealmConfig{
 		AutoDiscloseCaller: true,
 		Roles: []xconn.RealmRole{
