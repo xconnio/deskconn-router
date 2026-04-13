@@ -136,9 +136,7 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 }
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	_ = godotenv.Load()
 
 	databaseURL, ok := os.LookupEnv("DESKCONN_POSTGRES_URL")
 	if !ok || databaseURL == "" {

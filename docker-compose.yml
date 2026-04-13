@@ -1,0 +1,12 @@
+services:
+  deskconn-router:
+    image: xconnio/deskconn-router:latest
+    env_file:
+      - .env
+    environment:
+      DESKCONN_POSTGRES_HOST: host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
