@@ -55,7 +55,7 @@ func NewAuthenticator(session *xconn.Session) *Authenticator {
 }
 
 func (a *Authenticator) Methods() []auth.Method {
-	return []auth.Method{auth.MethodCRA, auth.MethodCryptoSign}
+	return []auth.Method{auth.MethodCRA, auth.MethodCryptoSign, auth.MethodAnonymous}
 }
 
 func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error) {
@@ -233,11 +233,6 @@ func main() {
 					},
 					{
 						URI:         "io.xconn.deskconn.account.password.reset",
-						MatchPolicy: "exact",
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.account.upgrade",
 						MatchPolicy: "exact",
 						AllowCall:   true,
 					},
