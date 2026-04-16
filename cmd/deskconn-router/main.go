@@ -27,9 +27,8 @@ const (
 	accountServiceAuthID    = "deskconn-account-service"
 	accountServicePublicKey = "c98fb454dfda50be26b74818d3c20caf6810970b9de4a01fe5cd6282603400f1"
 
-	webAppAuthRole  = "xconnio:deskconn:app:web"
-	webAppAuthID    = "deskconn-web-app"
-	webAppPublicKey = "3339ee2adba8cb27c6ed72a222645e88475ef96a3704185efa1084ace56f3fd0"
+	anonymousAuthRole = "anonymous"
+	webAppAuthID      = "deskconn-web-app"
 
 	ciAuthRole  = "xconnio:deskconn:ci"
 	ciAuthID    = "deskconn-ci"
@@ -56,7 +55,7 @@ func NewAuthenticator(session *xconn.Session) *Authenticator {
 }
 
 func (a *Authenticator) Methods() []auth.Method {
-	return []auth.Method{auth.MethodCRA, auth.MethodCryptoSign}
+	return []auth.Method{auth.MethodCRA, auth.MethodCryptoSign, auth.MethodAnonymous}
 }
 
 func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error) {
@@ -100,9 +99,6 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 
 			return nil, fmt.Errorf("invalid private key for account service")
 		}
-		if cryptosignRequest.PublicKey() == webAppPublicKey && cryptosignRequest.AuthID() == webAppAuthID {
-			return auth.NewResponse(cryptosignRequest.AuthID(), webAppAuthRole, 0)
-		}
 
 		if cryptosignRequest.PublicKey() == ciPublicKey && cryptosignRequest.AuthID() == ciAuthID {
 			return auth.NewResponse(cryptosignRequest.AuthID(), ciAuthRole, 0)
@@ -130,6 +126,14 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 		}
 
 		return auth.NewResponse(authid, authrole, 0)
+
+	case auth.Anonymous:
+		if request.AuthID() == webAppAuthID && request.Realm() == realm {
+			return auth.NewResponse(request.AuthID(), anonymousAuthRole, 0)
+		}
+
+		return nil, fmt.Errorf("invalid authid or realm")
+
 	default:
 		return nil, fmt.Errorf("unsupported authentication method: %v", request.AuthMethod())
 	}
@@ -205,7 +209,7 @@ func main() {
 				},
 			},
 			{
-				Name: webAppAuthRole,
+				Name: anonymousAuthRole,
 				Permissions: []xconn.Permission{
 					{
 						URI:         "io.xconn.deskconn.account.create",
@@ -229,11 +233,6 @@ func main() {
 					},
 					{
 						URI:         "io.xconn.deskconn.account.password.reset",
-						MatchPolicy: "exact",
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.account.upgrade",
 						MatchPolicy: "exact",
 						AllowCall:   true,
 					},
