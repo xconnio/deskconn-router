@@ -410,6 +410,11 @@ func addRealm(router *xconn.Router, rlm string, authid string) error {
 						MatchPolicy:  "exact",
 						AllowPublish: true,
 					},
+					{
+						URI:            "wamp.session.on_leave",
+						MatchPolicy:    "exact",
+						AllowSubscribe: true,
+					},
 				},
 			},
 			{
