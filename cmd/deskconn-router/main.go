@@ -42,6 +42,10 @@ const (
 	topicAnswererOnCandidate = "io.xconn.webrtc.answerer.on_candidate"
 
 	desktopAuthRoleFormat = "xconnio:deskconn:desktop:%s"
+
+	matchPrefix   = "prefix"
+	matchExact    = "exact"
+	matchWildcard = "wildcard"
 )
 
 type Authenticator struct {
@@ -173,37 +177,37 @@ func main() {
 				Permissions: []xconn.Permission{
 					{
 						URI:           "io.xconn.deskconn.",
-						MatchPolicy:   "prefix",
+						MatchPolicy:   matchPrefix,
 						AllowRegister: true,
 					},
 					{
 						URI:         procedureAddRealm,
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 					{
 						URI:         procedureRemoveRealm,
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 					{
 						URI:          "io.xconn.deskconn.desktop.*.key.add",
-						MatchPolicy:  "wildcard",
+						MatchPolicy:  matchWildcard,
 						AllowPublish: true,
 					},
 					{
 						URI:          "io.xconn.deskconn.desktop.*.key.remove",
-						MatchPolicy:  "wildcard",
+						MatchPolicy:  matchWildcard,
 						AllowPublish: true,
 					},
 					{
 						URI:          "io.xconn.deskconn.desktop.*.detach",
-						MatchPolicy:  "wildcard",
+						MatchPolicy:  matchWildcard,
 						AllowPublish: true,
 					},
 					{
 						URI:         "wamp.session.kill_by_authid",
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 				},
@@ -213,27 +217,27 @@ func main() {
 				Permissions: []xconn.Permission{
 					{
 						URI:         "io.xconn.deskconn.account.create",
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 					{
 						URI:         "io.xconn.deskconn.account.verify",
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 					{
 						URI:         "io.xconn.deskconn.account.otp.resend",
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 					{
 						URI:         "io.xconn.deskconn.account.password.forget",
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 					{
 						URI:         "io.xconn.deskconn.account.password.reset",
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 				},
@@ -243,7 +247,7 @@ func main() {
 				Permissions: []xconn.Permission{
 					{
 						URI:         "io.xconn.deskconn.app.update",
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 				},
@@ -253,47 +257,47 @@ func main() {
 				Permissions: []xconn.Permission{
 					{
 						URI:         "io.xconn.deskconn.organization.",
-						MatchPolicy: "prefix",
+						MatchPolicy: matchPrefix,
 						AllowCall:   true,
 					},
 					{
 						URI:         "io.xconn.deskconn.account.get",
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 					{
 						URI:         "io.xconn.deskconn.account.principal.",
-						MatchPolicy: "prefix",
+						MatchPolicy: matchPrefix,
 						AllowCall:   true,
 					},
 					{
 						URI:         "io.xconn.deskconn.account.update",
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 					{
 						URI:         "io.xconn.deskconn.account.delete",
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 					{
 						URI:         "io.xconn.deskconn.desktop.",
-						MatchPolicy: "prefix",
+						MatchPolicy: matchPrefix,
 						AllowCall:   true,
 					},
 					{
 						URI:         "io.xconn.deskconn.device.",
-						MatchPolicy: "prefix",
+						MatchPolicy: matchPrefix,
 						AllowCall:   true,
 					},
 					{
 						URI:         "io.xconn.deskconn.app.",
-						MatchPolicy: "prefix",
+						MatchPolicy: matchPrefix,
 						AllowCall:   true,
 					},
 					{
 						URI:         procedureCoturnCreate,
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 				},
@@ -366,16 +370,33 @@ func main() {
 	}
 	fmt.Printf("Registered procedure %s\n", procedureRemoveRealm)
 
+	yamuxAddress, ok := os.LookupEnv("DESKCONN_ROUTER_YAMUX_ADDRESS")
+	if !ok || yamuxAddress == "" {
+		yamuxAddress = "0.0.0.0:8081"
+	}
+
+	registry := newStreamBroker()
+
 	server := xconn.NewServer(router, NewAuthenticator(session), &xconn.ServerConfig{
 		KeepAliveInterval: 30 * time.Second,
 		KeepAliveTimeout:  10 * time.Second,
 	})
+	server.SetYamuxConnHandler(registry.onDeviceConnect)
+	server.SetStreamHandler(registry.onClientStream)
+
 	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, address)
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("listening on %s", listener.Addr().String())
+	log.Printf("listening websocket on %s", listener.Addr().String())
 	defer listener.Close()
+
+	yamuxListener, err := server.ListenAndServeYamux(xconn.NetworkTCP, yamuxAddress)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("listening yamux on %s", yamuxListener.Addr().String())
+	defer yamuxListener.Close()
 
 	// Close server if SIGINT (CTRL-c) received.
 	closeChan := make(chan os.Signal, 1)
@@ -392,27 +413,27 @@ func addRealm(router *xconn.Router, rlm string, authid string) error {
 				Permissions: []xconn.Permission{
 					{
 						URI:           "io.xconn.deskconn.deskconnd.",
-						MatchPolicy:   "prefix",
+						MatchPolicy:   matchPrefix,
 						AllowRegister: true,
 					},
 					{
 						URI:           procedureWebRTCOffer,
-						MatchPolicy:   "exact",
+						MatchPolicy:   matchExact,
 						AllowRegister: true,
 					},
 					{
 						URI:            topicAnswererOnCandidate,
-						MatchPolicy:    "exact",
+						MatchPolicy:    matchExact,
 						AllowSubscribe: true,
 					},
 					{
 						URI:          topicOffererOnCandidate,
-						MatchPolicy:  "exact",
+						MatchPolicy:  matchExact,
 						AllowPublish: true,
 					},
 					{
 						URI:            "wamp.session.on_leave",
-						MatchPolicy:    "exact",
+						MatchPolicy:    matchExact,
 						AllowSubscribe: true,
 					},
 				},
@@ -422,22 +443,22 @@ func addRealm(router *xconn.Router, rlm string, authid string) error {
 				Permissions: []xconn.Permission{
 					{
 						URI:         "io.xconn.deskconn.deskconnd.",
-						MatchPolicy: "prefix",
+						MatchPolicy: matchPrefix,
 						AllowCall:   true,
 					},
 					{
 						URI:         procedureWebRTCOffer,
-						MatchPolicy: "exact",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 					{
 						URI:          topicAnswererOnCandidate,
-						MatchPolicy:  "exact",
+						MatchPolicy:  matchExact,
 						AllowPublish: true,
 					},
 					{
 						URI:            topicOffererOnCandidate,
-						MatchPolicy:    "exact",
+						MatchPolicy:    matchExact,
 						AllowSubscribe: true,
 					},
 				},
@@ -453,27 +474,27 @@ func addRealm(router *xconn.Router, rlm string, authid string) error {
 		Permissions: []xconn.Permission{
 			{
 				URI:         "io.xconn.deskconn.desktop.access.key.list",
-				MatchPolicy: "exact",
+				MatchPolicy: matchExact,
 				AllowCall:   true,
 			},
 			{
 				URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.add", authid),
-				MatchPolicy:    "exact",
+				MatchPolicy:    matchExact,
 				AllowSubscribe: true,
 			},
 			{
 				URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.remove", authid),
-				MatchPolicy:    "exact",
+				MatchPolicy:    matchExact,
 				AllowSubscribe: true,
 			},
 			{
 				URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.detach", authid),
-				MatchPolicy:    "exact",
+				MatchPolicy:    matchExact,
 				AllowSubscribe: true,
 			},
 			{
 				URI:         procedureCoturnCreate,
-				MatchPolicy: "exact",
+				MatchPolicy: matchExact,
 				AllowCall:   true,
 			},
 		},
