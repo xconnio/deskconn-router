@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -49,15 +48,20 @@ func isDeviceSession(session xconn.BaseSession) bool {
 	return strings.HasPrefix(session.AuthRole(), "xconnio:deskconn:desktop:")
 }
 
-// onDeviceConnect is used as the YamuxConnHandler on the server.
-// Only deskconnd connections are registered, CLI user connections are ignored.
-func (r *streamBroker) onDeviceConnect(ctx context.Context, session xconn.BaseSession, conn *xconn.YamuxClientConn) {
-	if !isDeviceSession(session) {
+// trackDevices reads from the Conns channel and registers/unregisters device connections.
+func (r *streamBroker) trackDevices(conns <-chan *xconn.YamuxConnEvent) {
+	for event := range conns {
+		go r.trackDevice(event)
+	}
+}
+
+func (r *streamBroker) trackDevice(event *xconn.YamuxConnEvent) {
+	if !isDeviceSession(event.Session) {
 		return
 	}
-	rlm := session.Realm()
-	r.register(rlm, conn)
-	<-ctx.Done()
+	rlm := event.Session.Realm()
+	r.register(rlm, event.Conn)
+	<-event.Ctx.Done()
 	r.unregister(rlm)
 }
 
@@ -69,16 +73,22 @@ type relayRequest struct {
 	Recursive bool   `json:"recursive,omitempty"`
 }
 
-// onClientStream is used as the StreamHandler on the server.
-// Only CLI user sessions trigger a relay; device daemon streams are ignored.
-func (r *streamBroker) onClientStream(session xconn.BaseSession, cliStream net.Conn) {
+// relayStreams reads from the Streams channel and bridges each CLI stream to the target device.
+func (r *streamBroker) relayStreams(streams <-chan *xconn.YamuxStreamEvent) {
+	for event := range streams {
+		go r.relayStream(event)
+	}
+}
+
+func (r *streamBroker) relayStream(event *xconn.YamuxStreamEvent) {
+	cliStream := event.Stream
 	defer cliStream.Close()
 
-	if isDeviceSession(session) {
+	if isDeviceSession(event.Session) {
 		return
 	}
 
-	rlm := session.Realm()
+	rlm := event.Session.Realm()
 
 	var req relayRequest
 	if err := readRelayMsg(cliStream, &req); err != nil {
@@ -108,7 +118,6 @@ func (r *streamBroker) onClientStream(session xconn.BaseSession, cliStream net.C
 	}
 
 	log.Debugf("relay: bridging %s for realm=%s", req.Op, rlm)
-	// Pipe both directions until either side closes.
 	bridge(cliStream, deviceStream)
 	log.Debugf("relay: bridge done for realm=%s", rlm)
 }
