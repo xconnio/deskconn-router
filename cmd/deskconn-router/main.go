@@ -381,6 +381,8 @@ func main() {
 		KeepAliveInterval: 30 * time.Second,
 		KeepAliveTimeout:  10 * time.Second,
 	})
+	server.SetYamuxConnHandler(registry.onDeviceConnect)
+	server.SetStreamHandler(registry.onClientStream)
 
 	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, address)
 	if err != nil {
@@ -395,9 +397,6 @@ func main() {
 	}
 	log.Printf("listening yamux on %s", yamuxListener.Addr().String())
 	defer yamuxListener.Close()
-
-	go registry.trackDevices(yamuxListener.Conns)
-	go registry.relayStreams(yamuxListener.Streams)
 
 	// Close server if SIGINT (CTRL-c) received.
 	closeChan := make(chan os.Signal, 1)

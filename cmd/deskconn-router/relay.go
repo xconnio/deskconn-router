@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -48,20 +49,15 @@ func isDeviceSession(session xconn.BaseSession) bool {
 	return strings.HasPrefix(session.AuthRole(), "xconnio:deskconn:desktop:")
 }
 
-// trackDevices reads from the Conns channel and registers/unregisters device connections.
-func (r *streamBroker) trackDevices(conns <-chan *xconn.YamuxConnEvent) {
-	for event := range conns {
-		go r.trackDevice(event)
-	}
-}
-
-func (r *streamBroker) trackDevice(event *xconn.YamuxConnEvent) {
-	if !isDeviceSession(event.Session) {
+// onDeviceConnect is used as the YamuxConnHandler on the server.
+// Only deskconnd connections are registered, CLI user connections are ignored.
+func (r *streamBroker) onDeviceConnect(ctx context.Context, session xconn.BaseSession, conn *xconn.YamuxClientConn) {
+	if !isDeviceSession(session) {
 		return
 	}
-	rlm := event.Session.Realm()
-	r.register(rlm, event.Conn)
-	<-event.Ctx.Done()
+	rlm := session.Realm()
+	r.register(rlm, conn)
+	<-ctx.Done()
 	r.unregister(rlm)
 }
 
@@ -73,22 +69,16 @@ type relayRequest struct {
 	Recursive bool   `json:"recursive,omitempty"`
 }
 
-// relayStreams reads from the Streams channel and bridges each CLI stream to the target device.
-func (r *streamBroker) relayStreams(streams <-chan *xconn.YamuxStreamEvent) {
-	for event := range streams {
-		go r.relayStream(event)
-	}
-}
-
-func (r *streamBroker) relayStream(event *xconn.YamuxStreamEvent) {
-	cliStream := event.Stream
+// onClientStream is used as the StreamHandler on the server.
+// Only CLI user sessions trigger a relay; device daemon streams are ignored.
+func (r *streamBroker) onClientStream(session xconn.BaseSession, cliStream net.Conn) {
 	defer cliStream.Close()
 
-	if isDeviceSession(event.Session) {
+	if isDeviceSession(session) {
 		return
 	}
 
-	rlm := event.Session.Realm()
+	rlm := session.Realm()
 
 	var req relayRequest
 	if err := readRelayMsg(cliStream, &req); err != nil {
@@ -118,6 +108,7 @@ func (r *streamBroker) relayStream(event *xconn.YamuxStreamEvent) {
 	}
 
 	log.Debugf("relay: bridging %s for realm=%s", req.Op, rlm)
+	// Pipe both directions until either side closes.
 	bridge(cliStream, deviceStream)
 	log.Debugf("relay: bridge done for realm=%s", rlm)
 }
