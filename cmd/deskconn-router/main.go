@@ -370,34 +370,16 @@ func main() {
 	}
 	fmt.Printf("Registered procedure %s\n", procedureRemoveRealm)
 
-	yamuxAddress, ok := os.LookupEnv("DESKCONN_ROUTER_YAMUX_ADDRESS")
-	if !ok || yamuxAddress == "" {
-		yamuxAddress = "0.0.0.0:8081"
-	}
-
-	registry := newStreamBroker()
-
 	server := xconn.NewServer(router, NewAuthenticator(session), &xconn.ServerConfig{
 		KeepAliveInterval: 30 * time.Second,
 		KeepAliveTimeout:  10 * time.Second,
 	})
-
 	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, address)
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("listening websocket on %s", listener.Addr().String())
+	log.Printf("listening on %s", listener.Addr().String())
 	defer listener.Close()
-
-	yamuxListener, err := server.ListenAndServeYamux(xconn.NetworkTCP, yamuxAddress)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("listening yamux on %s", yamuxListener.Addr().String())
-	defer yamuxListener.Close()
-
-	go registry.trackDevices(yamuxListener.Conns)
-	go registry.relayStreams(yamuxListener.Streams)
 
 	// Close server if SIGINT (CTRL-c) received.
 	closeChan := make(chan os.Signal, 1)
