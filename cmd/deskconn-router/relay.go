@@ -124,17 +124,16 @@ func (r *streamBroker) relayStream(event *xconn.YamuxStreamEvent) {
 
 // bridge copies data between two connections concurrently until both sides are done.
 func bridge(a, b net.Conn) {
-	const bufSize = 256 * 1024
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_, _ = io.CopyBuffer(a, b, make([]byte, bufSize))
+		_, _ = io.Copy(a, b)
 		_ = a.Close()
 	}()
 	go func() {
 		defer wg.Done()
-		_, _ = io.CopyBuffer(b, a, make([]byte, bufSize))
+		_, _ = io.Copy(b, a)
 		_ = b.Close()
 	}()
 	wg.Wait()
