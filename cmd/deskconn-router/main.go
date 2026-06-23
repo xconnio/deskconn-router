@@ -163,6 +163,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error getting desktops from db: %v", err)
 	}
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.Close()
+	}
 
 	router, err := xconn.NewRouter(xconn.DefaultRouterConfig())
 	if err != nil {
