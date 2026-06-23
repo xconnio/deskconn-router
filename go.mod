@@ -5,8 +5,8 @@ go 1.22
 require (
 	github.com/joho/godotenv v1.5.1
 	github.com/sirupsen/logrus v1.9.3
-	github.com/xconnio/wampproto-go v0.0.0-20251205113711-968e34250b9a
-	github.com/xconnio/xconn-go v0.0.0-20251108143232-364781a4f29a
+	github.com/xconnio/wampproto-go v0.0.0-20260623091423-ecb54c6c2318
+	github.com/xconnio/xconn-go v0.1.1-0.20260623101916-a2ee1d584214
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )
