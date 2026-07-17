@@ -259,6 +259,14 @@ func main() {
 				Name: "user",
 				Permissions: []xconn.Permission{
 					{
+						URI:            "io.xconn.webrtc.*",
+						MatchPolicy:    matchPrefix,
+						AllowCall:      true,
+						AllowRegister:  true,
+						AllowSubscribe: true,
+						AllowPublish:   true,
+					},
+					{
 						URI:         "io.xconn.deskconn.organization.",
 						MatchPolicy: matchPrefix,
 						AllowCall:   true,
