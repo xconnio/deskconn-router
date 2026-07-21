@@ -9,4 +9,7 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "8080:8080"
+      - "8081:8081/udp"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: unless-stopped

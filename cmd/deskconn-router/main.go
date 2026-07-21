@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"os"
 	"os/signal"
@@ -392,10 +393,51 @@ func main() {
 	log.Printf("listening on %s", listener.Addr().String())
 	defer listener.Close()
 
+	quicAddress, ok := os.LookupEnv("DESKCONN_ROUTER_QUIC_ADDRESS")
+	if !ok || quicAddress == "" {
+		quicAddress = "0.0.0.0:8081"
+	}
+	quicTLSConfig, err := loadQUICTLSConfig()
+	if err != nil {
+		log.Fatalf("failed to load QUIC TLS config: %v", err)
+	}
+	registry := newConnBroker()
+	quicListener, err := server.ListenAndServeQUIC(quicAddress, quicTLSConfig)
+	if err != nil {
+		log.Fatalf("failed to start QUIC listener: %v", err)
+	}
+	log.Printf("QUIC listening on %s", quicAddress)
+	defer quicListener.Close()
+
+	go func() {
+		for conn := range quicListener.AcceptSession() {
+			go registry.onDeviceConnect(conn.Ctx, conn.Session, conn.QUICConn)
+		}
+	}()
+	go func() {
+		for stream := range quicListener.AcceptStream() {
+			go registry.onClientStream(stream.Conn)
+		}
+	}()
+
 	// Close server if SIGINT (CTRL-c) received.
 	closeChan := make(chan os.Signal, 1)
 	signal.Notify(closeChan, os.Interrupt)
 	<-closeChan
+}
+
+func loadQUICTLSConfig() (*tls.Config, error) {
+	certFile, hasCert := os.LookupEnv("DESKCONN_ROUTER_QUIC_TLS_CERT")
+	keyFile, hasKey := os.LookupEnv("DESKCONN_ROUTER_QUIC_TLS_KEY")
+	if hasCert && hasKey {
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load TLS key pair: %w", err)
+		}
+		return &tls.Config{Certificates: []tls.Certificate{cert}}, nil
+	}
+	log.Warn("DESKCONN_ROUTER_QUIC_TLS_CERT/KEY not set, using self-signed certificate")
+	return xconn.GenerateSelfSignedTLSConfig()
 }
 
 func addRealm(router *xconn.Router, rlm string, authid string) error {
