@@ -6,7 +6,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/xconnio/wampproto-go v0.0.0-20260623091423-ecb54c6c2318
-	github.com/xconnio/xconn-go v0.1.1-0.20260715113039-ebdaf4d66fa9
+	github.com/xconnio/xconn-go v0.1.1-0.20260721102205-68e3287f5402
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )
