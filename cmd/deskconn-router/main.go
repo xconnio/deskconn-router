@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -420,6 +422,41 @@ func main() {
 		}
 	}()
 
+	wtAddress, ok := os.LookupEnv("DESKCONN_ROUTER_WT_ADDRESS")
+	if !ok || wtAddress == "" {
+		wtAddress = "[::]:8082"
+	}
+	wtTLSConfig, wtCertHash, err := loadWebTransportTLSConfig()
+	if err != nil {
+		log.Fatalf("failed to load WebTransport TLS config: %v", err)
+	}
+	if len(wtCertHash) > 0 {
+		// Self-signed cert: expose fingerprint over HTTP so browser clients can use
+		// serverCertificateHashes without installing a CA.
+		wtHashAddr, ok := os.LookupEnv("DESKCONN_ROUTER_WT_HASH_ADDRESS")
+		if !ok || wtHashAddr == "" {
+			wtHashAddr = "localhost:8083"
+		}
+		go serveWebTransportCertHash(wtHashAddr, base64.StdEncoding.EncodeToString(wtCertHash))
+	}
+	wtListener, err := server.ListenAndServeWebTransport(wtAddress, wtTLSConfig, "/wamp")
+	if err != nil {
+		log.Fatalf("failed to start WebTransport listener: %v", err)
+	}
+	log.Printf("WebTransport listening on %s", wtAddress)
+	defer wtListener.Close()
+
+	go func() {
+		for range wtListener.AcceptSession() {
+			// Browser WAMP sessions are fully handled by the router.
+		}
+	}()
+	go func() {
+		for stream := range wtListener.AcceptStream() {
+			go registry.onClientStream(stream.Conn)
+		}
+	}()
+
 	// Close server if SIGINT (CTRL-c) received.
 	closeChan := make(chan os.Signal, 1)
 	signal.Notify(closeChan, os.Interrupt)
@@ -438,6 +475,41 @@ func loadQUICTLSConfig() (*tls.Config, error) {
 	}
 	log.Warn("DESKCONN_ROUTER_QUIC_TLS_CERT/KEY not set, using self-signed certificate")
 	return xconn.GenerateSelfSignedTLSConfig()
+}
+
+// loadWebTransportTLSConfig loads TLS for WebTransport. When cert files are configured the browser
+// verifies them through normal CA trust. Otherwise a short-lived self-signed ECDSA cert is
+// generated and its SHA-256 fingerprint is returned.
+func loadWebTransportTLSConfig() (*tls.Config, []byte, error) {
+	certFile, hasCert := os.LookupEnv("DESKCONN_ROUTER_QUIC_TLS_CERT")
+	keyFile, hasKey := os.LookupEnv("DESKCONN_ROUTER_QUIC_TLS_KEY")
+	if hasCert && certFile != "" && hasKey && keyFile != "" {
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			return nil, nil, fmt.Errorf("load WebTransport TLS key pair: %w", err)
+		}
+		log.Infof("WebTransport using CA-signed certificate from %s (no cert hash needed)", certFile)
+		return &tls.Config{Certificates: []tls.Certificate{cert}}, nil, nil
+	}
+	log.Infof("DESKCONN_ROUTER_QUIC_TLS_CERT/KEY not set, generating self-signed ECDSA certificate for WebTransport")
+	return xconn.GenerateWebTransportTLSConfig()
+}
+
+func serveWebTransportCertHash(address, hashBase64 string) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/wt-cert-hash", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+		fmt.Fprintf(w, `{"hash":%q}`, hashBase64)
+	})
+	log.Infof("WebTransport cert hash available at http://%s/wt-cert-hash", address)
+	server := &http.Server{Addr: address, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	if err := server.ListenAndServe(); err != nil {
+		log.Errorf("cert hash server: %v", err)
+	}
 }
 
 func addRealm(router *xconn.Router, rlm string, authid string) error {
