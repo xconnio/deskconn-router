@@ -395,6 +395,17 @@ func main() {
 	log.Printf("listening on %s", listener.Addr().String())
 	defer listener.Close()
 
+	rawSocketAddress, ok := os.LookupEnv("DESKCONN_ROUTER_RAWSOCKET_ADDRESS")
+	if !ok || rawSocketAddress == "" {
+		rawSocketAddress = "0.0.0.0:8084"
+	}
+	rawSocketListener, err := server.ListenAndServeRawSocket(xconn.NetworkTCP, rawSocketAddress)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("raw socket listening on %s", rawSocketListener.Addr().String())
+	defer rawSocketListener.Close()
+
 	quicAddress, ok := os.LookupEnv("DESKCONN_ROUTER_QUIC_ADDRESS")
 	if !ok || quicAddress == "" {
 		quicAddress = "0.0.0.0:8081"
