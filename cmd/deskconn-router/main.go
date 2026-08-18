@@ -153,6 +153,10 @@ func main() {
 	if !ok || databaseURL == "" {
 		log.Fatalln("DESKCONN_POSTGRES_URL not set")
 	}
+	address, ok := os.LookupEnv("DESKCONN_ROUTER_ADDRESS")
+	if !ok || address == "" {
+		address = "0.0.0.0:8080"
+	}
 	db, err := openDB(databaseURL)
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
@@ -384,6 +388,12 @@ func main() {
 		KeepAliveInterval: 30 * time.Second,
 		KeepAliveTimeout:  10 * time.Second,
 	})
+	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, address)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("listening on %s", listener.Addr().String())
+	defer listener.Close()
 
 	rawSocketAddress, ok := os.LookupEnv("DESKCONN_ROUTER_RAWSOCKET_ADDRESS")
 	if !ok || rawSocketAddress == "" {
