@@ -30,8 +30,11 @@ const (
 	accountServiceAuthID    = "deskconn-account-service"
 	accountServicePublicKey = "c98fb454dfda50be26b74818d3c20caf6810970b9de4a01fe5cd6282603400f1"
 
+	webAppAuthRole  = "xconnio:deskconn:app:web"
+	webAppAuthID    = "deskconn-web-app"
+	webAppPublicKey = "f71727af7b6fa2007d59253486a4dd24d9c18df64a1f5dfa17785530214ec781"
+
 	anonymousAuthRole = "anonymous"
-	webAppAuthID      = "deskconn-web-app"
 
 	ciAuthRole  = "xconnio:deskconn:ci"
 	ciAuthID    = "deskconn-ci"
@@ -50,6 +53,36 @@ const (
 	matchExact    = "exact"
 	matchWildcard = "wildcard"
 )
+
+func webAppPermissions() []xconn.Permission {
+	return []xconn.Permission{
+		{
+			URI:         "io.xconn.deskconn.account.create",
+			MatchPolicy: matchExact,
+			AllowCall:   true,
+		},
+		{
+			URI:         "io.xconn.deskconn.account.verify",
+			MatchPolicy: matchExact,
+			AllowCall:   true,
+		},
+		{
+			URI:         "io.xconn.deskconn.account.otp.resend",
+			MatchPolicy: matchExact,
+			AllowCall:   true,
+		},
+		{
+			URI:         "io.xconn.deskconn.account.password.forget",
+			MatchPolicy: matchExact,
+			AllowCall:   true,
+		},
+		{
+			URI:         "io.xconn.deskconn.account.password.reset",
+			MatchPolicy: matchExact,
+			AllowCall:   true,
+		},
+	}
+}
 
 type Authenticator struct {
 	session *xconn.Session
@@ -105,6 +138,10 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 			}
 
 			return nil, fmt.Errorf("invalid private key for account service")
+		}
+
+		if cryptosignRequest.PublicKey() == webAppPublicKey && cryptosignRequest.AuthID() == webAppAuthID {
+			return auth.NewResponse(cryptosignRequest.AuthID(), webAppAuthRole, 0)
 		}
 
 		if cryptosignRequest.PublicKey() == ciPublicKey && cryptosignRequest.AuthID() == ciAuthID {
@@ -215,34 +252,12 @@ func main() {
 				},
 			},
 			{
-				Name: anonymousAuthRole,
-				Permissions: []xconn.Permission{
-					{
-						URI:         "io.xconn.deskconn.account.create",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.account.verify",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.account.otp.resend",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.account.password.forget",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.account.password.reset",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-				},
+				Name:        anonymousAuthRole,
+				Permissions: webAppPermissions(),
+			},
+			{
+				Name:        webAppAuthRole,
+				Permissions: webAppPermissions(),
 			},
 			{
 				Name: ciAuthRole,
