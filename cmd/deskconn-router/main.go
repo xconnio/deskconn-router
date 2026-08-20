@@ -81,16 +81,6 @@ func webAppPermissions() []xconn.Permission {
 			MatchPolicy: matchExact,
 			AllowCall:   true,
 		},
-		{
-			URI:         "io.xconn.deskconn.account.login",
-			MatchPolicy: matchExact,
-			AllowCall:   true,
-		},
-		{
-			URI:         "io.xconn.deskconn.account.login.verify",
-			MatchPolicy: matchExact,
-			AllowCall:   true,
-		},
 	}
 }
 
@@ -332,6 +322,16 @@ func main() {
 					},
 					{
 						URI:         procedureCoturnCreate,
+						MatchPolicy: matchExact,
+						AllowCall:   true,
+					},
+					{
+						URI:         "io.xconn.deskconn.account.login",
+						MatchPolicy: matchExact,
+						AllowCall:   true,
+					},
+					{
+						URI:         "io.xconn.deskconn.account.login.verify",
 						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
