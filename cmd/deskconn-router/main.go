@@ -34,6 +34,10 @@ const (
 	webAppAuthID    = "deskconn-web-app"
 	webAppPublicKey = "f71727af7b6fa2007d59253486a4dd24d9c18df64a1f5dfa17785530214ec781"
 
+	mobileAppAuthRole  = "xconnio:deskconn:app:mobile"
+	mobileAppAuthID    = "deskconn-web-mobile"
+	mobileAppPublicKey = "c318732cd9dadb040ce79dc2559bfb7d7de8187d10d14b62393261e6cae1c216"
+
 	anonymousAuthRole = "anonymous"
 
 	ciAuthRole  = "xconnio:deskconn:ci"
@@ -142,6 +146,10 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 
 		if cryptosignRequest.PublicKey() == webAppPublicKey && cryptosignRequest.AuthID() == webAppAuthID {
 			return auth.NewResponse(cryptosignRequest.AuthID(), webAppAuthRole, 0)
+		}
+
+		if cryptosignRequest.PublicKey() == mobileAppPublicKey && cryptosignRequest.AuthID() == mobileAppAuthID {
+			return auth.NewResponse(cryptosignRequest.AuthID(), mobileAppAuthRole, 0)
 		}
 
 		if cryptosignRequest.PublicKey() == ciPublicKey && cryptosignRequest.AuthID() == ciAuthID {
@@ -257,6 +265,10 @@ func main() {
 			},
 			{
 				Name:        webAppAuthRole,
+				Permissions: webAppPermissions(),
+			},
+			{
+				Name:        mobileAppAuthRole,
 				Permissions: webAppPermissions(),
 			},
 			{
