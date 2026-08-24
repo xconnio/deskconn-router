@@ -35,7 +35,7 @@ const (
 	webAppPublicKey = "f71727af7b6fa2007d59253486a4dd24d9c18df64a1f5dfa17785530214ec781"
 
 	mobileAppAuthRole  = "xconnio:deskconn:app:mobile"
-	mobileAppAuthID    = "deskconn-web-mobile"
+	mobileAppAuthID    = "deskconn-mobile-app"
 	mobileAppPublicKey = "c318732cd9dadb040ce79dc2559bfb7d7de8187d10d14b62393261e6cae1c216"
 
 	anonymousAuthRole = "anonymous"
