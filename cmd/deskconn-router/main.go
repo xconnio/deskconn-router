@@ -38,8 +38,6 @@ const (
 	mobileAppAuthID    = "deskconn-mobile-app"
 	mobileAppPublicKey = "c318732cd9dadb040ce79dc2559bfb7d7de8187d10d14b62393261e6cae1c216"
 
-	anonymousAuthRole = "anonymous"
-
 	ciAuthRole  = "xconnio:deskconn:ci"
 	ciAuthID    = "deskconn-ci"
 	ciPublicKey = "af12b0d04d8e2e468e31115d6c7ca665ff39d7dd78455ae2e3f73f61962e16bb"
@@ -99,7 +97,7 @@ func NewAuthenticator(session *xconn.Session) *Authenticator {
 }
 
 func (a *Authenticator) Methods() []auth.Method {
-	return []auth.Method{auth.MethodCRA, auth.MethodCryptoSign, auth.MethodAnonymous}
+	return []auth.Method{auth.MethodCRA, auth.MethodCryptoSign}
 }
 
 func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error) {
@@ -179,13 +177,6 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 
 		return auth.NewResponse(authid, authrole, 0)
 
-	case auth.Anonymous:
-		if request.AuthID() == webAppAuthID && request.Realm() == realm {
-			return auth.NewResponse(request.AuthID(), anonymousAuthRole, 0)
-		}
-
-		return nil, fmt.Errorf("invalid authid or realm")
-
 	default:
 		return nil, fmt.Errorf("unsupported authentication method: %v", request.AuthMethod())
 	}
@@ -258,10 +249,6 @@ func main() {
 						AllowCall:   true,
 					},
 				},
-			},
-			{
-				Name:        anonymousAuthRole,
-				Permissions: webAppPermissions(),
 			},
 			{
 				Name:        webAppAuthRole,
