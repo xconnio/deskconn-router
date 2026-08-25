@@ -570,9 +570,9 @@ func addRealm(router *xconn.Router, rlm string, authid string) error {
 						AllowSubscribe: true,
 					},
 					{
-						URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.detach", authid),
-						MatchPolicy:    matchExact,
-						AllowSubscribe: true,
+						URI:         "io.xconn.deskconn.desktop.detach",
+						MatchPolicy: matchExact,
+						AllowCall:   true,
 					},
 				},
 			},
