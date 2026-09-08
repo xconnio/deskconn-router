@@ -54,6 +54,9 @@ const (
 	matchPrefix   = "prefix"
 	matchExact    = "exact"
 	matchWildcard = "wildcard"
+
+	craUserAuthRole        = "cra-user"
+	cryptosignUserAuthRole = "cryptosign-user"
 )
 
 func webAppPermissions() []xconn.Permission {
@@ -127,6 +130,9 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 		}
 		iteration := dict.Int64Or("iteration", 1000)
 		keyLength := dict.Int64Or("key_length", 32)
+		if authrole == "user" {
+			authrole = craUserAuthRole
+		}
 		return auth.NewCRAResponseSalted(request.AuthID(), authrole, secret, salt, int(iteration), int(keyLength), 0), nil
 
 	case auth.MethodCryptoSign:
@@ -173,6 +179,10 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 		authrole, err := dict.String("authrole")
 		if err != nil {
 			return nil, fmt.Errorf("failed to get authrole for user(%s): %w", request.AuthID(), err)
+		}
+
+		if authrole == "user" {
+			authrole = cryptosignUserAuthRole
 		}
 
 		return auth.NewResponse(authid, authrole, 0)
@@ -269,7 +279,7 @@ func main() {
 				},
 			},
 			{
-				Name: "user",
+				Name: cryptosignUserAuthRole,
 				Permissions: []xconn.Permission{
 					{
 						URI:            "io.xconn.webrtc.",
@@ -305,8 +315,33 @@ func main() {
 						AllowCall:   true,
 					},
 					{
-						URI:         "io.xconn.deskconn.desktop.",
+						URI:         "io.xconn.deskconn.desktop.list",
+						MatchPolicy: matchExact,
+						AllowCall:   true,
+					},
+					{
+						URI:         "io.xconn.deskconn.desktop.update",
+						MatchPolicy: matchExact,
+						AllowCall:   true,
+					},
+					{
+						URI:         "io.xconn.deskconn.desktop.access",
+						MatchPolicy: matchExact,
+						AllowCall:   true,
+					},
+					{
+						URI:         "io.xconn.deskconn.desktop.access.",
 						MatchPolicy: matchPrefix,
+						AllowCall:   true,
+					},
+					{
+						URI:         "io.xconn.deskconn.desktop.invitation.",
+						MatchPolicy: matchPrefix,
+						AllowCall:   true,
+					},
+					{
+						URI:         "io.xconn.deskconn.desktop.detach",
+						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
 					{
@@ -324,6 +359,11 @@ func main() {
 						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
+				},
+			},
+			{
+				Name: craUserAuthRole,
+				Permissions: []xconn.Permission{
 					{
 						URI:         "io.xconn.deskconn.account.login",
 						MatchPolicy: matchExact,
@@ -331,6 +371,11 @@ func main() {
 					},
 					{
 						URI:         "io.xconn.deskconn.account.login.verify",
+						MatchPolicy: matchExact,
+						AllowCall:   true,
+					},
+					{
+						URI:         "io.xconn.deskconn.desktop.attach",
 						MatchPolicy: matchExact,
 						AllowCall:   true,
 					},
@@ -577,7 +622,7 @@ func addRealm(router *xconn.Router, rlm string, authid string) error {
 				},
 			},
 			{
-				Name: "user",
+				Name: cryptosignUserAuthRole,
 				Permissions: []xconn.Permission{
 					{
 						URI:         "io.xconn.deskconn.deskconnd.",
