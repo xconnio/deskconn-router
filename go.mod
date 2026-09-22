@@ -1,18 +1,18 @@
 module github.com/xconnio/deskconn-router
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/joho/godotenv v1.5.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/xconnio/wampproto-go v0.0.0-20260623091423-ecb54c6c2318
-	github.com/xconnio/xconn-go v0.1.1-0.20260918140517-4c29dc94f134
+	github.com/xconnio/xconn-go v0.1.1-0.20260922122113-3d9041d7e40f
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )
 
 require (
-	github.com/dunglas/httpsfv v1.1.0 // indirect
+	github.com/dunglas/httpsfv v1.1.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
@@ -29,8 +29,8 @@ require (
 	github.com/projectdiscovery/ratelimit v0.0.50 // indirect
 	github.com/projectdiscovery/utils v0.2.3 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
-	github.com/quic-go/quic-go v0.61.0 // indirect
-	github.com/quic-go/webtransport-go v0.12.0 // indirect
+	github.com/quic-go/quic-go v0.62.0 // indirect
+	github.com/quic-go/webtransport-go v0.13.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
