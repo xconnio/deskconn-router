@@ -1,9 +1,11 @@
-FROM golang:1.26-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
+ARG TARGETOS
+ARG TARGETARCH
 WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN apk add --no-cache make git && make build
+RUN apk add --no-cache make git && GOOS=$TARGETOS GOARCH=$TARGETARCH make build
 
 FROM scratch
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/

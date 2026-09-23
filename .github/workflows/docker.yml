@@ -15,17 +15,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Build Docker image
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build multi-arch image
+        if: github.event_name == 'pull_request'
         run: make build-docker
 
-      - name: Log in and push Docker image
+      - name: Build and push multi-arch image
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-          VERSION=$(git describe --tags --always)
-          docker tag xconnio/deskconn-router:latest xconnio/deskconn-router:$VERSION
-          docker push xconnio/deskconn-router:latest
-          docker push xconnio/deskconn-router:$VERSION
+          make push-docker
 
   deploy:
     runs-on: ubuntu-latest
