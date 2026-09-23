@@ -68,7 +68,7 @@ type relayRequest struct {
 	Recursive bool   `json:"recursive,omitempty"`
 }
 
-func (r *connBroker) onClientStream(cliStream net.Conn) {
+func (r *connBroker) onClientStream(cliStream net.Conn, session xconn.BaseSession) {
 	defer cliStream.Close()
 
 	var req relayRequest
@@ -78,6 +78,13 @@ func (r *connBroker) onClientStream(cliStream net.Conn) {
 
 	if req.Realm == "" {
 		_ = writeRelayError(cliStream, "missing realm in request")
+		return
+	}
+
+	// Only relay to the realm the stream's connection authenticated to, and only for
+	// user sessions: their realm access is verified by the account service.
+	if req.Realm != session.Realm() || session.AuthRole() != cryptosignUserAuthRole {
+		_ = writeRelayError(cliStream, "not authorized for realm")
 		return
 	}
 

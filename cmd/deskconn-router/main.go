@@ -488,7 +488,7 @@ func main() {
 	}()
 	go func() {
 		for stream := range quicListener.AcceptStream() {
-			go registry.onClientStream(stream.Conn)
+			go registry.onClientStream(stream.Conn, stream.Session)
 		}
 	}()
 
@@ -523,7 +523,7 @@ func main() {
 	}()
 	go func() {
 		for stream := range wtListener.AcceptStream() {
-			go registry.onClientStream(stream.Conn)
+			go registry.onClientStream(stream.Conn, stream.Session)
 		}
 	}()
 
