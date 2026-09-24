@@ -23,8 +23,9 @@ DESKCONN_ROUTER_ADDRESS=localhost:8080
 > **Note:** `DESKCONN_POSTGRES_URL` must point to the same Postgres database used by
 > the [account service](https://github.com/xconnio/deskconn-account-service).
 >
-> When running `make run-docker`, Docker Compose overrides `DESKCONN_POSTGRES_HOST` with
-> `host.docker.internal` so the container connects to the Postgres instance running on the Docker host.
+> When running `make run-docker`, the router joins the `deskconn` Docker network created by the
+> account service (start it first) and should use
+> `DESKCONN_POSTGRES_HOST=deskconn-account-service-postgres` in `.env`.
 
 ## Run
 
