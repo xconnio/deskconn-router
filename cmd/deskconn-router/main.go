@@ -536,7 +536,7 @@ func main() {
 func loadQUICTLSConfig() (*tls.Config, error) {
 	certFile, hasCert := os.LookupEnv("DESKCONN_ROUTER_QUIC_TLS_CERT")
 	keyFile, hasKey := os.LookupEnv("DESKCONN_ROUTER_QUIC_TLS_KEY")
-	if hasCert && hasKey {
+	if hasCert && certFile != "" && hasKey && keyFile != "" {
 		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
 			return nil, fmt.Errorf("load TLS key pair: %w", err)
