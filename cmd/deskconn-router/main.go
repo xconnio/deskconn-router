@@ -26,9 +26,9 @@ const (
 	procedureRemoveRealm      = "io.xconn.deskconn.realm.remove"
 	procedureCoturnCreate     = "io.xconn.deskconn.coturn.credentials.create"
 
-	accountServiceAuthRole  = "xconnio:deskconn:cloud:service:account"
-	accountServiceAuthID    = "deskconn-account-service"
-	accountServicePublicKey = "c98fb454dfda50be26b74818d3c20caf6810970b9de4a01fe5cd6282603400f1"
+	accountServiceAuthRole         = "xconnio:deskconn:cloud:service:account"
+	accountServiceAuthID           = "deskconn-account-service"
+	defaultAccountServicePublicKey = "c98fb454dfda50be26b74818d3c20caf6810970b9de4a01fe5cd6282603400f1"
 
 	webAppAuthRole  = "xconnio:deskconn:app:web"
 	webAppAuthID    = "deskconn-web-app"
@@ -58,6 +58,14 @@ const (
 	craUserAuthRole        = "cra-user"
 	cryptosignUserAuthRole = "cryptosign-user"
 )
+
+// accountServicePublicKey can be overridden so local setups can use their own key pair.
+func accountServicePublicKey() string {
+	if key := os.Getenv("DESKCONN_ACCOUNT_SERVICE_PUBLIC_KEY"); key != "" {
+		return key
+	}
+	return defaultAccountServicePublicKey
+}
 
 func webAppPermissions() []xconn.Permission {
 	return []xconn.Permission{
@@ -141,7 +149,7 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 			return nil, fmt.Errorf("invalid request")
 		}
 		if cryptosignRequest.AuthID() == accountServiceAuthID {
-			if cryptosignRequest.PublicKey() == accountServicePublicKey {
+			if cryptosignRequest.PublicKey() == accountServicePublicKey() {
 				return auth.NewResponse(cryptosignRequest.AuthID(), accountServiceAuthRole, 0)
 			}
 
