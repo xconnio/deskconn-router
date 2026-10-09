@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/webtransport-go"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/xconn-go"
@@ -113,6 +115,23 @@ func bridge(a, b net.Conn) {
 	go func() { _, _ = io.Copy(a, b); done <- struct{}{} }()
 	go func() { _, _ = io.Copy(b, a); done <- struct{}{} }()
 	<-done
+	stopReading(a)
+	stopReading(b)
+}
+
+// stopReading tells a QUIC or WebTransport stream's peer to stop sending. Closing one only
+// ends its write side: a peer that keeps sending (the device, after a client cancels a
+// read) would otherwise pile up unread data that holds the whole connection's flow-control
+// window, until no stream on that connection moves.
+func stopReading(c net.Conn) {
+	switch s := c.(type) {
+	case interface{ CancelRead(quic.StreamErrorCode) }:
+		s.CancelRead(0)
+	case interface {
+		CancelRead(webtransport.StreamErrorCode)
+	}:
+		s.CancelRead(0)
+	}
 }
 
 func writeRelayMsg(w io.Writer, v any) error {
