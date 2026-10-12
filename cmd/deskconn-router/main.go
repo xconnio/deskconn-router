@@ -55,8 +55,10 @@ const (
 	matchExact    = "exact"
 	matchWildcard = "wildcard"
 
-	craUserAuthRole        = "cra-user"
-	cryptosignUserAuthRole = "cryptosign-user"
+	// A user's role on the system realm (io.xconn.deskconn), by how they authenticated. On
+	// a desktop realm they get one of the desktop roles below instead.
+	craUserAuthRole        = "user:cra"
+	cryptosignUserAuthRole = "user:cryptosign"
 
 	// A user's role on a desktop realm, from the account service: its access role there.
 	desktopOwnerAuthRole  = "user:owner"
@@ -68,12 +70,11 @@ const (
 	adminPrefix = "io.xconn.deskconn.admin."
 )
 
-// hasMachineAccess reports whether role gives a user access to a machine: owner,
-// admin or member. cryptosign-user is what an account service from before
-// user:owner/admin/member returns.
+// hasMachineAccess reports whether role gives a user access to a machine: owner, admin
+// or member.
 func hasMachineAccess(role string) bool {
 	switch role {
-	case desktopOwnerAuthRole, desktopAdminAuthRole, desktopMemberAuthRole, cryptosignUserAuthRole:
+	case desktopOwnerAuthRole, desktopAdminAuthRole, desktopMemberAuthRole:
 		return true
 	}
 	return false
@@ -195,9 +196,6 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 		}
 		iteration := dict.Int64Or("iteration", 1000)
 		keyLength := dict.Int64Or("key_length", 32)
-		if authrole == "user" {
-			authrole = craUserAuthRole
-		}
 		return auth.NewCRAResponseSalted(request.AuthID(), authrole, secret, salt, int(iteration), int(keyLength), 0), nil
 
 	case auth.MethodCryptoSign:
@@ -244,10 +242,6 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 		authrole, err := dict.String("authrole")
 		if err != nil {
 			return nil, fmt.Errorf("failed to get authrole for user(%s): %w", request.AuthID(), err)
-		}
-
-		if authrole == "user" {
-			authrole = cryptosignUserAuthRole
 		}
 
 		return auth.NewResponse(authid, authrole, 0)
@@ -694,7 +688,6 @@ func addRealm(router *xconn.Router, rlm string, authid string) error {
 			{Name: desktopOwnerAuthRole, Permissions: desktopManagerPermissions()},
 			{Name: desktopAdminAuthRole, Permissions: desktopManagerPermissions()},
 			{Name: desktopMemberAuthRole, Permissions: desktopUserPermissions()},
-			{Name: cryptosignUserAuthRole, Permissions: desktopUserPermissions()},
 		},
 	})
 	if err != nil {
