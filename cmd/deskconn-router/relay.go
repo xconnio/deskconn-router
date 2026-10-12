@@ -83,7 +83,7 @@ func (r *connBroker) onClientStream(cliStream net.Conn, session xconn.BaseSessio
 
 	// Only relay to the realm the stream's connection authenticated to, and only for
 	// user sessions: their realm access is verified by the account service.
-	if req.Realm != session.Realm() || session.AuthRole() != cryptosignUserAuthRole {
+	if req.Realm != session.Realm() || !hasMachineAccess(session.AuthRole()) {
 		_ = writeRelayError(cliStream, "not authorized for realm")
 		return
 	}
