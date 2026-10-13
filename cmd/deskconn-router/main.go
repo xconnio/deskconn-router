@@ -55,9 +55,67 @@ const (
 	matchExact    = "exact"
 	matchWildcard = "wildcard"
 
-	craUserAuthRole        = "cra-user"
-	cryptosignUserAuthRole = "cryptosign-user"
+	// A user's role on the system realm (io.xconn.deskconn), by how they authenticated. On
+	// a desktop realm they get one of the desktop roles below instead.
+	craUserAuthRole        = "user:cra"
+	cryptosignUserAuthRole = "user:cryptosign"
+
+	// A user's role on a desktop realm, from the account service: its access role there.
+	desktopOwnerAuthRole  = "user:owner"
+	desktopAdminAuthRole  = "user:admin"
+	desktopMemberAuthRole = "user:member"
+
+	deskconndPrefix = "io.xconn.deskconn.deskconnd."
+	// adminPrefix is where a desktop's procedures for only its owner and admins live.
+	adminPrefix = "io.xconn.deskconn.admin."
 )
+
+// hasMachineAccess reports whether role gives a user access to a machine: owner, admin
+// or member.
+func hasMachineAccess(role string) bool {
+	switch role {
+	case desktopOwnerAuthRole, desktopAdminAuthRole, desktopMemberAuthRole:
+		return true
+	}
+	return false
+}
+
+// desktopManagerPermissions are an owner's or admin's: a member's, plus the procedures
+// under adminPrefix.
+func desktopManagerPermissions() []xconn.Permission {
+	return append(desktopUserPermissions(), xconn.Permission{
+		URI:         adminPrefix,
+		MatchPolicy: matchPrefix,
+		AllowCall:   true,
+	})
+}
+
+// desktopUserPermissions are what every user of a desktop realm may do: call its deskconnd
+// procedures and signal WebRTC for direct connections.
+func desktopUserPermissions() []xconn.Permission {
+	return []xconn.Permission{
+		{
+			URI:         deskconndPrefix,
+			MatchPolicy: matchPrefix,
+			AllowCall:   true,
+		},
+		{
+			URI:         procedureWebRTCOffer,
+			MatchPolicy: matchExact,
+			AllowCall:   true,
+		},
+		{
+			URI:          topicAnswererOnCandidate,
+			MatchPolicy:  matchExact,
+			AllowPublish: true,
+		},
+		{
+			URI:            topicOffererOnCandidate,
+			MatchPolicy:    matchExact,
+			AllowSubscribe: true,
+		},
+	}
+}
 
 // accountServicePublicKey can be overridden so local setups can use their own key pair.
 func accountServicePublicKey() string {
@@ -138,9 +196,6 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 		}
 		iteration := dict.Int64Or("iteration", 1000)
 		keyLength := dict.Int64Or("key_length", 32)
-		if authrole == "user" {
-			authrole = craUserAuthRole
-		}
 		return auth.NewCRAResponseSalted(request.AuthID(), authrole, secret, salt, int(iteration), int(keyLength), 0), nil
 
 	case auth.MethodCryptoSign:
@@ -187,10 +242,6 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 		authrole, err := dict.String("authrole")
 		if err != nil {
 			return nil, fmt.Errorf("failed to get authrole for user(%s): %w", request.AuthID(), err)
-		}
-
-		if authrole == "user" {
-			authrole = cryptosignUserAuthRole
 		}
 
 		return auth.NewResponse(authid, authrole, 0)
@@ -598,7 +649,12 @@ func addRealm(router *xconn.Router, rlm string, authid string) error {
 				Name: fmt.Sprintf(desktopAuthRoleFormat, authid),
 				Permissions: []xconn.Permission{
 					{
-						URI:           "io.xconn.deskconn.deskconnd.",
+						URI:           deskconndPrefix,
+						MatchPolicy:   matchPrefix,
+						AllowRegister: true,
+					},
+					{
+						URI:           adminPrefix,
 						MatchPolicy:   matchPrefix,
 						AllowRegister: true,
 					},
@@ -629,31 +685,9 @@ func addRealm(router *xconn.Router, rlm string, authid string) error {
 					},
 				},
 			},
-			{
-				Name: cryptosignUserAuthRole,
-				Permissions: []xconn.Permission{
-					{
-						URI:         "io.xconn.deskconn.deskconnd.",
-						MatchPolicy: matchPrefix,
-						AllowCall:   true,
-					},
-					{
-						URI:         procedureWebRTCOffer,
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:          topicAnswererOnCandidate,
-						MatchPolicy:  matchExact,
-						AllowPublish: true,
-					},
-					{
-						URI:            topicOffererOnCandidate,
-						MatchPolicy:    matchExact,
-						AllowSubscribe: true,
-					},
-				},
-			},
+			{Name: desktopOwnerAuthRole, Permissions: desktopManagerPermissions()},
+			{Name: desktopAdminAuthRole, Permissions: desktopManagerPermissions()},
+			{Name: desktopMemberAuthRole, Permissions: desktopUserPermissions()},
 		},
 	})
 	if err != nil {
