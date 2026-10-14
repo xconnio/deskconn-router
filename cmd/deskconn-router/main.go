@@ -3,254 +3,18 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/xconnio/wampproto-go/auth"
-	"github.com/xconnio/xconn-go"
+	"github.com/xconnio/deskconn-router/router"
 )
 
-const (
-	realm = "io.xconn.deskconn"
-
-	procedureCRAVerify        = "io.xconn.deskconn.account.cra.verify"
-	procedureCryptosignVerify = "io.xconn.deskconn.account.cryptosign.verify"
-	procedureAddRealm         = "io.xconn.deskconn.realm.add"
-	procedureRemoveRealm      = "io.xconn.deskconn.realm.remove"
-	procedureCoturnCreate     = "io.xconn.deskconn.coturn.credentials.create"
-
-	accountServiceAuthRole         = "xconnio:deskconn:cloud:service:account"
-	accountServiceAuthID           = "deskconn-account-service"
-	defaultAccountServicePublicKey = "c98fb454dfda50be26b74818d3c20caf6810970b9de4a01fe5cd6282603400f1"
-
-	webAppAuthRole  = "xconnio:deskconn:app:web"
-	webAppAuthID    = "deskconn-web-app"
-	webAppPublicKey = "f71727af7b6fa2007d59253486a4dd24d9c18df64a1f5dfa17785530214ec781"
-
-	mobileAppAuthRole  = "xconnio:deskconn:app:mobile"
-	mobileAppAuthID    = "deskconn-mobile-app"
-	mobileAppPublicKey = "c318732cd9dadb040ce79dc2559bfb7d7de8187d10d14b62393261e6cae1c216"
-
-	ciAuthRole  = "xconnio:deskconn:ci"
-	ciAuthID    = "deskconn-ci"
-	ciPublicKey = "af12b0d04d8e2e468e31115d6c7ca665ff39d7dd78455ae2e3f73f61962e16bb"
-
-	ErrInvalidArgument = "wamp.error.invalid_argument"
-	ErrOperationFailed = "wamp.error.operation_failed"
-
-	procedureWebRTCOffer     = "io.xconn.webrtc.offer"
-	topicOffererOnCandidate  = "io.xconn.webrtc.offerer.on_candidate"
-	topicAnswererOnCandidate = "io.xconn.webrtc.answerer.on_candidate"
-
-	desktopAuthRoleFormat = "xconnio:deskconn:desktop:%s"
-
-	matchPrefix   = "prefix"
-	matchExact    = "exact"
-	matchWildcard = "wildcard"
-
-	// A user's role on the system realm (io.xconn.deskconn), by how they authenticated. On
-	// a desktop realm they get one of the desktop roles below instead.
-	craUserAuthRole        = "user:cra"
-	cryptosignUserAuthRole = "user:cryptosign"
-
-	// A user's role on a desktop realm, from the account service: its access role there.
-	desktopOwnerAuthRole  = "user:owner"
-	desktopAdminAuthRole  = "user:admin"
-	desktopMemberAuthRole = "user:member"
-
-	deskconndPrefix = "io.xconn.deskconn.deskconnd."
-	// adminPrefix is where a desktop's procedures for only its owner and admins live.
-	adminPrefix = "io.xconn.deskconn.admin."
-)
-
-// hasMachineAccess reports whether role gives a user access to a machine: owner, admin
-// or member.
-func hasMachineAccess(role string) bool {
-	switch role {
-	case desktopOwnerAuthRole, desktopAdminAuthRole, desktopMemberAuthRole:
-		return true
-	}
-	return false
-}
-
-// desktopManagerPermissions are an owner's or admin's: a member's, plus the procedures
-// under adminPrefix.
-func desktopManagerPermissions() []xconn.Permission {
-	return append(desktopUserPermissions(), xconn.Permission{
-		URI:         adminPrefix,
-		MatchPolicy: matchPrefix,
-		AllowCall:   true,
-	})
-}
-
-// desktopUserPermissions are what every user of a desktop realm may do: call its deskconnd
-// procedures and signal WebRTC for direct connections.
-func desktopUserPermissions() []xconn.Permission {
-	return []xconn.Permission{
-		{
-			URI:         deskconndPrefix,
-			MatchPolicy: matchPrefix,
-			AllowCall:   true,
-		},
-		{
-			URI:         procedureWebRTCOffer,
-			MatchPolicy: matchExact,
-			AllowCall:   true,
-		},
-		{
-			URI:          topicAnswererOnCandidate,
-			MatchPolicy:  matchExact,
-			AllowPublish: true,
-		},
-		{
-			URI:            topicOffererOnCandidate,
-			MatchPolicy:    matchExact,
-			AllowSubscribe: true,
-		},
-	}
-}
-
-// accountServicePublicKey can be overridden so local setups can use their own key pair.
-func accountServicePublicKey() string {
-	if key := os.Getenv("DESKCONN_ACCOUNT_SERVICE_PUBLIC_KEY"); key != "" {
-		return key
-	}
-	return defaultAccountServicePublicKey
-}
-
-func webAppPermissions() []xconn.Permission {
-	return []xconn.Permission{
-		{
-			URI:         "io.xconn.deskconn.account.create",
-			MatchPolicy: matchExact,
-			AllowCall:   true,
-		},
-		{
-			URI:         "io.xconn.deskconn.account.verify",
-			MatchPolicy: matchExact,
-			AllowCall:   true,
-		},
-		{
-			URI:         "io.xconn.deskconn.account.otp.resend",
-			MatchPolicy: matchExact,
-			AllowCall:   true,
-		},
-		{
-			URI:         "io.xconn.deskconn.account.password.forget",
-			MatchPolicy: matchExact,
-			AllowCall:   true,
-		},
-		{
-			URI:         "io.xconn.deskconn.account.password.reset",
-			MatchPolicy: matchExact,
-			AllowCall:   true,
-		},
-	}
-}
-
-type Authenticator struct {
-	session *xconn.Session
-}
-
-func NewAuthenticator(session *xconn.Session) *Authenticator {
-	return &Authenticator{
-		session: session,
-	}
-}
-
-func (a *Authenticator) Methods() []auth.Method {
-	return []auth.Method{auth.MethodCRA, auth.MethodCryptoSign}
-}
-
-func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error) {
-	switch request.AuthMethod() {
-	case auth.MethodCRA:
-		callResp := a.session.Call(procedureCRAVerify).Args(request.AuthID(), request.Realm()).Do()
-		if callResp.Err != nil {
-			return nil, callResp.Err
-		}
-
-		dict, err := callResp.ArgDict(0)
-		if err != nil {
-			return nil, err
-		}
-
-		authrole, err := dict.String("authrole")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get authrole for user(%s): %w", request.AuthID(), err)
-		}
-		secret, err := dict.String("password")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get secret for user(%s): %w", request.AuthID(), err)
-		}
-		salt, err := dict.String("salt")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get salt for user(%s): %w", request.AuthID(), err)
-		}
-		iteration := dict.Int64Or("iteration", 1000)
-		keyLength := dict.Int64Or("key_length", 32)
-		return auth.NewCRAResponseSalted(request.AuthID(), authrole, secret, salt, int(iteration), int(keyLength), 0), nil
-
-	case auth.MethodCryptoSign:
-		cryptosignRequest, ok := request.(*auth.RequestCryptoSign)
-		if !ok {
-			return nil, fmt.Errorf("invalid request")
-		}
-		if cryptosignRequest.AuthID() == accountServiceAuthID {
-			if cryptosignRequest.PublicKey() == accountServicePublicKey() {
-				return auth.NewResponse(cryptosignRequest.AuthID(), accountServiceAuthRole, 0)
-			}
-
-			return nil, fmt.Errorf("invalid private key for account service")
-		}
-
-		if cryptosignRequest.PublicKey() == webAppPublicKey && cryptosignRequest.AuthID() == webAppAuthID {
-			return auth.NewResponse(cryptosignRequest.AuthID(), webAppAuthRole, 0)
-		}
-
-		if cryptosignRequest.PublicKey() == mobileAppPublicKey && cryptosignRequest.AuthID() == mobileAppAuthID {
-			return auth.NewResponse(cryptosignRequest.AuthID(), mobileAppAuthRole, 0)
-		}
-
-		if cryptosignRequest.PublicKey() == ciPublicKey && cryptosignRequest.AuthID() == ciAuthID {
-			return auth.NewResponse(cryptosignRequest.AuthID(), ciAuthRole, 0)
-		}
-
-		callResp := a.session.Call(procedureCryptosignVerify).Args(request.AuthID(), cryptosignRequest.PublicKey(),
-			request.Realm()).Do()
-		if callResp.Err != nil {
-			return nil, callResp.Err
-		}
-
-		dict, err := callResp.ArgDict(0)
-		if err != nil {
-			return nil, err
-		}
-
-		authid, err := dict.String("authid")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get authid for user(%s): %w", request.AuthID(), err)
-		}
-
-		authrole, err := dict.String("authrole")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get authrole for user(%s): %w", request.AuthID(), err)
-		}
-
-		return auth.NewResponse(authid, authrole, 0)
-
-	default:
-		return nil, fmt.Errorf("unsupported authentication method: %v", request.AuthMethod())
-	}
-}
-
+// The Deskconn cloud router with the account service as its backend. To run it with your
+// own accounts, build a main like this one with your own router.Config callbacks.
 func main() {
 	_ = godotenv.Load()
 
@@ -258,473 +22,59 @@ func main() {
 	if !ok || databaseURL == "" {
 		log.Fatalln("DESKCONN_POSTGRES_URL not set")
 	}
-	db, err := openDB(databaseURL)
+
+	tlsConfig, err := loadTLSConfig()
 	if err != nil {
-		log.Fatalf("Error opening database: %v", err)
+		log.Fatalf("failed to load TLS config: %v", err)
 	}
 
-	desktops, err := getDesktops(db)
-	if err != nil {
-		log.Fatalf("Error getting desktops from db: %v", err)
-	}
-	if sqlDB, err := db.DB(); err == nil {
-		sqlDB.Close()
-	}
+	accounts := &accountService{}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
-	router, err := xconn.NewRouter(xconn.DefaultRouterConfig())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = router.AddRealm(realm, &xconn.RealmConfig{
-		AutoDiscloseCaller: true,
-		Roles: []xconn.RealmRole{
-			{
-				Name: accountServiceAuthRole,
-				Permissions: []xconn.Permission{
-					{
-						URI:           "io.xconn.deskconn.",
-						MatchPolicy:   matchPrefix,
-						AllowRegister: true,
-					},
-					{
-						URI:         procedureAddRealm,
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         procedureRemoveRealm,
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:          "io.xconn.deskconn.desktop.*.key.add",
-						MatchPolicy:  matchWildcard,
-						AllowPublish: true,
-					},
-					{
-						URI:          "io.xconn.deskconn.desktop.*.key.remove",
-						MatchPolicy:  matchWildcard,
-						AllowPublish: true,
-					},
-					{
-						URI:          "io.xconn.deskconn.desktop.*.detach",
-						MatchPolicy:  matchWildcard,
-						AllowPublish: true,
-					},
-					{
-						URI:         "wamp.session.kill_by_authid",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-				},
-			},
-			{
-				Name:        webAppAuthRole,
-				Permissions: webAppPermissions(),
-			},
-			{
-				Name:        mobileAppAuthRole,
-				Permissions: webAppPermissions(),
-			},
-			{
-				Name: ciAuthRole,
-				Permissions: []xconn.Permission{
-					{
-						URI:         "io.xconn.deskconn.app.update",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-				},
-			},
-			{
-				Name: cryptosignUserAuthRole,
-				Permissions: []xconn.Permission{
-					{
-						URI:            "io.xconn.webrtc.",
-						MatchPolicy:    matchPrefix,
-						AllowCall:      true,
-						AllowRegister:  true,
-						AllowSubscribe: true,
-						AllowPublish:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.organization.",
-						MatchPolicy: matchPrefix,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.account.get",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.account.principal.",
-						MatchPolicy: matchPrefix,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.account.update",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.account.delete",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.desktop.list",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.desktop.update",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.desktop.access",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.desktop.access.",
-						MatchPolicy: matchPrefix,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.desktop.invitation.",
-						MatchPolicy: matchPrefix,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.desktop.detach",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.device.",
-						MatchPolicy: matchPrefix,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.app.",
-						MatchPolicy: matchPrefix,
-						AllowCall:   true,
-					},
-					{
-						URI:         procedureCoturnCreate,
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-				},
-			},
-			{
-				Name: craUserAuthRole,
-				Permissions: []xconn.Permission{
-					{
-						URI:         "io.xconn.deskconn.account.login",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.account.login.verify",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-					{
-						URI:         "io.xconn.deskconn.desktop.attach",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-				},
-			},
-		},
+	r, err := router.New(ctx, router.Config{
+		Authenticate:        accounts.authenticate,
+		Machines:            machinesFromDatabase(databaseURL),
+		Roles:               cloudRoles(),
+		MachinePermissions:  machinePermissions,
+		UserRoles:           desktopUserRoles(),
+		RawSocketAddress:    envOr("DESKCONN_ROUTER_RAWSOCKET_ADDRESS", "0.0.0.0:8084"),
+		QUICAddress:         envOr("DESKCONN_ROUTER_QUIC_ADDRESS", "0.0.0.0:8081"),
+		WebTransportAddress: envOr("DESKCONN_ROUTER_WT_ADDRESS", "[::]:8082"),
+		CertHashAddress:     envOr("DESKCONN_ROUTER_WT_HASH_ADDRESS", "localhost:8083"),
+		TLSConfig:           tlsConfig,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
+	// The account service registers its procedures on the router's own realm.
+	accounts.session = r.Session()
 
-	if err := router.EnableMetaAPI(realm); err != nil {
+	if err := r.Serve(ctx); err != nil {
 		log.Fatal(err)
-	}
-
-	for _, desktop := range desktops {
-		if err := addRealm(router, desktop.Realm, desktop.AuthID); err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	session, err := xconn.ConnectInMemory(router, realm)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	registerResp := session.Register(procedureAddRealm,
-		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			if len(invocation.Args()) != 2 {
-				return xconn.NewInvocationError(ErrInvalidArgument, "must be called with two arguments(realm and authid)")
-			}
-			rlm, err := invocation.ArgString(0)
-			if err != nil {
-				return xconn.NewInvocationError(ErrInvalidArgument, err)
-			}
-			authid, err := invocation.ArgString(1)
-			if err != nil {
-				return xconn.NewInvocationError(ErrInvalidArgument, err)
-			}
-			if err := addRealm(router, rlm, authid); err != nil {
-				return xconn.NewInvocationError(ErrOperationFailed, err)
-			}
-			return xconn.NewInvocationResult()
-		}).Do()
-	if registerResp.Err != nil {
-		log.Fatal(registerResp.Err)
-	}
-	fmt.Printf("Registered procedure %s\n", procedureAddRealm)
-
-	removeRealmResp := session.Register(procedureRemoveRealm,
-		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			if len(invocation.Args()) != 2 {
-				return xconn.NewInvocationError(ErrInvalidArgument, "must be called with two argument(realm and authid)")
-			}
-			userRealm, err := invocation.ArgString(0)
-			if err != nil {
-				return xconn.NewInvocationError(ErrInvalidArgument, err.Error())
-			}
-			router.RemoveRealm(userRealm)
-			authid, err := invocation.ArgString(1)
-			if err != nil {
-				return xconn.NewInvocationError(ErrInvalidArgument, err)
-			}
-			if err := router.RemoveRealmRole(realm, fmt.Sprintf(desktopAuthRoleFormat, authid)); err != nil {
-				return xconn.NewInvocationError(ErrOperationFailed, err)
-			}
-			return xconn.NewInvocationResult()
-		}).Do()
-	if removeRealmResp.Err != nil {
-		log.Fatal(removeRealmResp.Err)
-	}
-	fmt.Printf("Registered procedure %s\n", procedureRemoveRealm)
-
-	server := xconn.NewServer(router, NewAuthenticator(session), &xconn.ServerConfig{
-		KeepAliveInterval: 30 * time.Second,
-		KeepAliveTimeout:  10 * time.Second,
-	})
-
-	rawSocketAddress, ok := os.LookupEnv("DESKCONN_ROUTER_RAWSOCKET_ADDRESS")
-	if !ok || rawSocketAddress == "" {
-		rawSocketAddress = "0.0.0.0:8084"
-	}
-	rawSocketListener, err := server.ListenAndServeRawSocket(xconn.NetworkTCP, rawSocketAddress)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("raw socket listening on %s", rawSocketListener.Addr().String())
-	defer rawSocketListener.Close()
-
-	quicAddress, ok := os.LookupEnv("DESKCONN_ROUTER_QUIC_ADDRESS")
-	if !ok || quicAddress == "" {
-		quicAddress = "0.0.0.0:8081"
-	}
-	quicTLSConfig, err := loadQUICTLSConfig()
-	if err != nil {
-		log.Fatalf("failed to load QUIC TLS config: %v", err)
-	}
-	registry := newConnBroker()
-	quicListener, err := server.ListenAndServeQUIC(quicAddress, quicTLSConfig)
-	if err != nil {
-		log.Fatalf("failed to start QUIC listener: %v", err)
-	}
-	log.Printf("QUIC listening on %s", quicAddress)
-	defer quicListener.Close()
-
-	go func() {
-		for conn := range quicListener.AcceptSession() {
-			go registry.onDeviceConnect(conn.Ctx, conn.Session, conn.QUICConn)
-		}
-	}()
-	go func() {
-		for stream := range quicListener.AcceptStream() {
-			go registry.onClientStream(stream.Conn, stream.Session)
-		}
-	}()
-
-	wtAddress, ok := os.LookupEnv("DESKCONN_ROUTER_WT_ADDRESS")
-	if !ok || wtAddress == "" {
-		wtAddress = "[::]:8082"
-	}
-	wtTLSConfig, wtCertHash, err := loadWebTransportTLSConfig()
-	if err != nil {
-		log.Fatalf("failed to load WebTransport TLS config: %v", err)
-	}
-	if len(wtCertHash) > 0 {
-		// Self-signed cert: expose fingerprint over HTTP so browser clients can use
-		// serverCertificateHashes without installing a CA.
-		wtHashAddr, ok := os.LookupEnv("DESKCONN_ROUTER_WT_HASH_ADDRESS")
-		if !ok || wtHashAddr == "" {
-			wtHashAddr = "localhost:8083"
-		}
-		go serveWebTransportCertHash(wtHashAddr, base64.StdEncoding.EncodeToString(wtCertHash))
-	}
-	wtListener, err := server.ListenAndServeWebTransport(wtAddress, wtTLSConfig, "/wamp")
-	if err != nil {
-		log.Fatalf("failed to start WebTransport listener: %v", err)
-	}
-	log.Printf("WebTransport listening on %s", wtAddress)
-	defer wtListener.Close()
-
-	go func() {
-		for range wtListener.AcceptSession() {
-			// Browser WAMP sessions are fully handled by the router.
-		}
-	}()
-	go func() {
-		for stream := range wtListener.AcceptStream() {
-			go registry.onClientStream(stream.Conn, stream.Session)
-		}
-	}()
-
-	// Close server if SIGINT (CTRL-c) received.
-	closeChan := make(chan os.Signal, 1)
-	signal.Notify(closeChan, os.Interrupt)
-	<-closeChan
-}
-
-func loadQUICTLSConfig() (*tls.Config, error) {
-	certFile, hasCert := os.LookupEnv("DESKCONN_ROUTER_QUIC_TLS_CERT")
-	keyFile, hasKey := os.LookupEnv("DESKCONN_ROUTER_QUIC_TLS_KEY")
-	if hasCert && certFile != "" && hasKey && keyFile != "" {
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			return nil, fmt.Errorf("load TLS key pair: %w", err)
-		}
-		return &tls.Config{Certificates: []tls.Certificate{cert}}, nil
-	}
-	log.Warn("DESKCONN_ROUTER_QUIC_TLS_CERT/KEY not set, using self-signed certificate")
-	return xconn.GenerateSelfSignedTLSConfig()
-}
-
-// loadWebTransportTLSConfig loads TLS for WebTransport. When cert files are configured the browser
-// verifies them through normal CA trust. Otherwise a short-lived self-signed ECDSA cert is
-// generated and its SHA-256 fingerprint is returned.
-func loadWebTransportTLSConfig() (*tls.Config, []byte, error) {
-	certFile, hasCert := os.LookupEnv("DESKCONN_ROUTER_QUIC_TLS_CERT")
-	keyFile, hasKey := os.LookupEnv("DESKCONN_ROUTER_QUIC_TLS_KEY")
-	if hasCert && certFile != "" && hasKey && keyFile != "" {
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			return nil, nil, fmt.Errorf("load WebTransport TLS key pair: %w", err)
-		}
-		log.Infof("WebTransport using CA-signed certificate from %s (no cert hash needed)", certFile)
-		return &tls.Config{Certificates: []tls.Certificate{cert}}, nil, nil
-	}
-	log.Infof("DESKCONN_ROUTER_QUIC_TLS_CERT/KEY not set, generating self-signed ECDSA certificate for WebTransport")
-	return xconn.GenerateWebTransportTLSConfig()
-}
-
-func serveWebTransportCertHash(address, hashBase64 string) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/wt-cert-hash", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-		w.Header().Set("Pragma", "no-cache")
-		w.Header().Set("Expires", "0")
-		fmt.Fprintf(w, `{"hash":%q}`, hashBase64)
-	})
-	log.Infof("WebTransport cert hash available at http://%s/wt-cert-hash", address)
-	server := &http.Server{Addr: address, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
-	if err := server.ListenAndServe(); err != nil {
-		log.Errorf("cert hash server: %v", err)
 	}
 }
 
-func addRealm(router *xconn.Router, rlm string, authid string) error {
-	err := router.AddRealm(rlm, &xconn.RealmConfig{
-		AutoDiscloseCaller: true,
-		// The machine follows its callers leaving (wamp.session.on_leave) to drop their keys.
-		Meta: true,
-		Roles: []xconn.RealmRole{
-			{
-				Name: fmt.Sprintf(desktopAuthRoleFormat, authid),
-				Permissions: []xconn.Permission{
-					{
-						URI:           deskconndPrefix,
-						MatchPolicy:   matchPrefix,
-						AllowRegister: true,
-					},
-					{
-						URI:           adminPrefix,
-						MatchPolicy:   matchPrefix,
-						AllowRegister: true,
-					},
-					{
-						URI:           procedureWebRTCOffer,
-						MatchPolicy:   matchExact,
-						AllowRegister: true,
-					},
-					{
-						URI:            topicAnswererOnCandidate,
-						MatchPolicy:    matchExact,
-						AllowSubscribe: true,
-					},
-					{
-						URI:          topicOffererOnCandidate,
-						MatchPolicy:  matchExact,
-						AllowPublish: true,
-					},
-					{
-						URI:            "wamp.session.on_leave",
-						MatchPolicy:    matchExact,
-						AllowSubscribe: true,
-					},
-					{
-						URI:         "io.xconn.deskconn.desktop.detach",
-						MatchPolicy: matchExact,
-						AllowCall:   true,
-					},
-				},
-			},
-			{Name: desktopOwnerAuthRole, Permissions: desktopManagerPermissions()},
-			{Name: desktopAdminAuthRole, Permissions: desktopManagerPermissions()},
-			{Name: desktopMemberAuthRole, Permissions: desktopUserPermissions()},
-		},
-	})
-	if err != nil {
-		return err
+func envOr(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
+	return fallback
+}
 
-	err = router.AddRealmRole(realm, xconn.RealmRole{
-		Name: fmt.Sprintf(desktopAuthRoleFormat, authid),
-		Permissions: []xconn.Permission{
-			{
-				URI:         "io.xconn.deskconn.desktop.access.key.list",
-				MatchPolicy: matchExact,
-				AllowCall:   true,
-			},
-			{
-				URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.add", authid),
-				MatchPolicy:    matchExact,
-				AllowSubscribe: true,
-			},
-			{
-				URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.remove", authid),
-				MatchPolicy:    matchExact,
-				AllowSubscribe: true,
-			},
-			{
-				URI:            fmt.Sprintf("io.xconn.deskconn.desktop.%s.detach", authid),
-				MatchPolicy:    matchExact,
-				AllowSubscribe: true,
-			},
-			{
-				URI:         procedureCoturnCreate,
-				MatchPolicy: matchExact,
-				AllowCall:   true,
-			},
-		},
-	})
-	return err
+// loadTLSConfig loads the QUIC and WebTransport certificate, or returns nil for self-signed
+// ones; browsers then trust WebTransport's through its fingerprint (see CertHashAddress).
+func loadTLSConfig() (*tls.Config, error) {
+	certFile := os.Getenv("DESKCONN_ROUTER_QUIC_TLS_CERT")
+	keyFile := os.Getenv("DESKCONN_ROUTER_QUIC_TLS_KEY")
+	if certFile == "" || keyFile == "" {
+		log.Warn("DESKCONN_ROUTER_QUIC_TLS_CERT/KEY not set, using self-signed certificates")
+		return nil, nil
+	}
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("load TLS key pair: %w", err)
+	}
+	log.Infof("using the certificate in %s", certFile)
+	return &tls.Config{Certificates: []tls.Certificate{cert}}, nil
 }
