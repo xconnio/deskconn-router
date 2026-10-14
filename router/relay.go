@@ -1,4 +1,4 @@
-package main
+package router
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -18,10 +17,12 @@ import (
 type connBroker struct {
 	sync.RWMutex
 	devices map[string]*xconn.QUICConn
+	// userRoles are the roles whose sessions may relay streams to their realm's machine.
+	userRoles map[string]bool
 }
 
-func newConnBroker() *connBroker {
-	return &connBroker{devices: make(map[string]*xconn.QUICConn)}
+func newConnBroker(userRoles map[string]bool) *connBroker {
+	return &connBroker{devices: make(map[string]*xconn.QUICConn), userRoles: userRoles}
 }
 
 func (r *connBroker) register(realm string, conn *xconn.QUICConn) {
@@ -45,12 +46,8 @@ func (r *connBroker) lookup(realm string) (*xconn.QUICConn, bool) {
 	return conn, ok
 }
 
-func isDeviceSession(session xconn.BaseSession) bool {
-	return strings.HasPrefix(session.AuthRole(), "xconnio:deskconn:desktop:")
-}
-
 func (r *connBroker) onDeviceConnect(ctx context.Context, session xconn.BaseSession, conn *xconn.QUICConn) {
-	if !isDeviceSession(session) {
+	if !isMachineSession(session) {
 		return
 	}
 	realm := session.Realm()
@@ -82,8 +79,8 @@ func (r *connBroker) onClientStream(cliStream net.Conn, session xconn.BaseSessio
 	}
 
 	// Only relay to the realm the stream's connection authenticated to, and only for
-	// user sessions: their realm access is verified by the account service.
-	if req.Realm != session.Realm() || !hasMachineAccess(session.AuthRole()) {
+	// user sessions: Config.Authenticate decided they may join that realm.
+	if req.Realm != session.Realm() || !r.userRoles[session.AuthRole()] {
 		_ = writeRelayError(cliStream, "not authorized for realm")
 		return
 	}
