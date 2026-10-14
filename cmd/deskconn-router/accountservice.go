@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/xconnio/deskconn-router/router"
+	"github.com/xconnio/deskconn/relay"
 	"github.com/xconnio/wampproto-go/auth"
 	"github.com/xconnio/xconn-go"
 )
@@ -59,8 +59,8 @@ type accountService struct {
 }
 
 // machinesFromDatabase reads the attached machines from the account service's database.
-func machinesFromDatabase(databaseURL string) func(context.Context) ([]router.Machine, error) {
-	return func(context.Context) ([]router.Machine, error) {
+func machinesFromDatabase(databaseURL string) func(context.Context) ([]relay.Machine, error) {
+	return func(context.Context) ([]relay.Machine, error) {
 		db, err := openDB(databaseURL)
 		if err != nil {
 			return nil, fmt.Errorf("error opening database: %w", err)
@@ -75,9 +75,9 @@ func machinesFromDatabase(databaseURL string) func(context.Context) ([]router.Ma
 		if err != nil {
 			return nil, fmt.Errorf("error getting desktops from db: %w", err)
 		}
-		machines := make([]router.Machine, 0, len(desktops))
+		machines := make([]relay.Machine, 0, len(desktops))
 		for _, desktop := range desktops {
-			machines = append(machines, router.Machine{AuthID: desktop.AuthID, Realm: desktop.Realm})
+			machines = append(machines, relay.Machine{AuthID: desktop.AuthID, Realm: desktop.Realm})
 		}
 		return machines, nil
 	}
@@ -167,11 +167,11 @@ func (a *accountService) authenticate(request auth.Request) (auth.Response, erro
 
 func webAppPermissions() []xconn.Permission {
 	return []xconn.Permission{
-		{URI: "io.xconn.deskconn.account.create", MatchPolicy: router.MatchExact, AllowCall: true},
-		{URI: "io.xconn.deskconn.account.verify", MatchPolicy: router.MatchExact, AllowCall: true},
-		{URI: "io.xconn.deskconn.account.otp.resend", MatchPolicy: router.MatchExact, AllowCall: true},
-		{URI: "io.xconn.deskconn.account.password.forget", MatchPolicy: router.MatchExact, AllowCall: true},
-		{URI: "io.xconn.deskconn.account.password.reset", MatchPolicy: router.MatchExact, AllowCall: true},
+		{URI: "io.xconn.deskconn.account.create", MatchPolicy: relay.MatchExact, AllowCall: true},
+		{URI: "io.xconn.deskconn.account.verify", MatchPolicy: relay.MatchExact, AllowCall: true},
+		{URI: "io.xconn.deskconn.account.otp.resend", MatchPolicy: relay.MatchExact, AllowCall: true},
+		{URI: "io.xconn.deskconn.account.password.forget", MatchPolicy: relay.MatchExact, AllowCall: true},
+		{URI: "io.xconn.deskconn.account.password.reset", MatchPolicy: relay.MatchExact, AllowCall: true},
 	}
 }
 
@@ -181,13 +181,13 @@ func cloudRoles() []xconn.RealmRole {
 		{
 			Name: accountServiceAuthRole,
 			Permissions: []xconn.Permission{
-				{URI: "io.xconn.deskconn.", MatchPolicy: router.MatchPrefix, AllowRegister: true},
-				{URI: router.ProcedureAddRealm, MatchPolicy: router.MatchExact, AllowCall: true},
-				{URI: router.ProcedureRemoveRealm, MatchPolicy: router.MatchExact, AllowCall: true},
-				{URI: "io.xconn.deskconn.desktop.*.key.add", MatchPolicy: router.MatchWildcard, AllowPublish: true},
-				{URI: "io.xconn.deskconn.desktop.*.key.remove", MatchPolicy: router.MatchWildcard, AllowPublish: true},
-				{URI: "io.xconn.deskconn.desktop.*.detach", MatchPolicy: router.MatchWildcard, AllowPublish: true},
-				{URI: "wamp.session.kill_by_authid", MatchPolicy: router.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.", MatchPolicy: relay.MatchPrefix, AllowRegister: true},
+				{URI: relay.ProcedureAddRealm, MatchPolicy: relay.MatchExact, AllowCall: true},
+				{URI: relay.ProcedureRemoveRealm, MatchPolicy: relay.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.desktop.*.key.add", MatchPolicy: relay.MatchWildcard, AllowPublish: true},
+				{URI: "io.xconn.deskconn.desktop.*.key.remove", MatchPolicy: relay.MatchWildcard, AllowPublish: true},
+				{URI: "io.xconn.deskconn.desktop.*.detach", MatchPolicy: relay.MatchWildcard, AllowPublish: true},
+				{URI: "wamp.session.kill_by_authid", MatchPolicy: relay.MatchExact, AllowCall: true},
 			},
 		},
 		{Name: webAppAuthRole, Permissions: webAppPermissions()},
@@ -195,50 +195,50 @@ func cloudRoles() []xconn.RealmRole {
 		{
 			Name: ciAuthRole,
 			Permissions: []xconn.Permission{
-				{URI: "io.xconn.deskconn.app.update", MatchPolicy: router.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.app.update", MatchPolicy: relay.MatchExact, AllowCall: true},
 			},
 		},
 		{
 			Name: cryptosignUserAuthRole,
 			Permissions: []xconn.Permission{
-				{URI: "io.xconn.webrtc.", MatchPolicy: router.MatchPrefix, AllowCall: true, AllowRegister: true,
+				{URI: "io.xconn.webrtc.", MatchPolicy: relay.MatchPrefix, AllowCall: true, AllowRegister: true,
 					AllowSubscribe: true, AllowPublish: true},
-				{URI: "io.xconn.deskconn.organization.", MatchPolicy: router.MatchPrefix, AllowCall: true},
-				{URI: "io.xconn.deskconn.account.get", MatchPolicy: router.MatchExact, AllowCall: true},
-				{URI: "io.xconn.deskconn.account.principal.", MatchPolicy: router.MatchPrefix, AllowCall: true},
-				{URI: "io.xconn.deskconn.account.update", MatchPolicy: router.MatchExact, AllowCall: true},
-				{URI: "io.xconn.deskconn.account.delete", MatchPolicy: router.MatchExact, AllowCall: true},
-				{URI: "io.xconn.deskconn.desktop.list", MatchPolicy: router.MatchExact, AllowCall: true},
-				{URI: "io.xconn.deskconn.desktop.update", MatchPolicy: router.MatchExact, AllowCall: true},
-				{URI: "io.xconn.deskconn.desktop.access", MatchPolicy: router.MatchExact, AllowCall: true},
-				{URI: "io.xconn.deskconn.desktop.access.", MatchPolicy: router.MatchPrefix, AllowCall: true},
-				{URI: "io.xconn.deskconn.desktop.invitation.", MatchPolicy: router.MatchPrefix, AllowCall: true},
-				{URI: "io.xconn.deskconn.desktop.detach", MatchPolicy: router.MatchExact, AllowCall: true},
-				{URI: "io.xconn.deskconn.device.", MatchPolicy: router.MatchPrefix, AllowCall: true},
-				{URI: "io.xconn.deskconn.app.", MatchPolicy: router.MatchPrefix, AllowCall: true},
-				{URI: procedureCoturnCreate, MatchPolicy: router.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.organization.", MatchPolicy: relay.MatchPrefix, AllowCall: true},
+				{URI: "io.xconn.deskconn.account.get", MatchPolicy: relay.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.account.principal.", MatchPolicy: relay.MatchPrefix, AllowCall: true},
+				{URI: "io.xconn.deskconn.account.update", MatchPolicy: relay.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.account.delete", MatchPolicy: relay.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.desktop.list", MatchPolicy: relay.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.desktop.update", MatchPolicy: relay.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.desktop.access", MatchPolicy: relay.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.desktop.access.", MatchPolicy: relay.MatchPrefix, AllowCall: true},
+				{URI: "io.xconn.deskconn.desktop.invitation.", MatchPolicy: relay.MatchPrefix, AllowCall: true},
+				{URI: "io.xconn.deskconn.desktop.detach", MatchPolicy: relay.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.device.", MatchPolicy: relay.MatchPrefix, AllowCall: true},
+				{URI: "io.xconn.deskconn.app.", MatchPolicy: relay.MatchPrefix, AllowCall: true},
+				{URI: procedureCoturnCreate, MatchPolicy: relay.MatchExact, AllowCall: true},
 			},
 		},
 		{
 			Name: craUserAuthRole,
 			Permissions: []xconn.Permission{
-				{URI: "io.xconn.deskconn.account.login", MatchPolicy: router.MatchExact, AllowCall: true},
-				{URI: "io.xconn.deskconn.account.login.verify", MatchPolicy: router.MatchExact, AllowCall: true},
-				{URI: "io.xconn.deskconn.desktop.attach", MatchPolicy: router.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.account.login", MatchPolicy: relay.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.account.login.verify", MatchPolicy: relay.MatchExact, AllowCall: true},
+				{URI: "io.xconn.deskconn.desktop.attach", MatchPolicy: relay.MatchExact, AllowCall: true},
 			},
 		},
 	}
 }
 
 // desktopUserRoles are a desktop realm's user roles: owners and admins may also call the
-// procedures under router.AdminPrefix.
+// procedures under relay.AdminPrefix.
 func desktopUserRoles() []xconn.RealmRole {
-	managerPermissions := append(router.MachineUserPermissions(),
-		xconn.Permission{URI: router.AdminPrefix, MatchPolicy: router.MatchPrefix, AllowCall: true})
+	managerPermissions := append(relay.MachineUserPermissions(),
+		xconn.Permission{URI: relay.AdminPrefix, MatchPolicy: relay.MatchPrefix, AllowCall: true})
 	return []xconn.RealmRole{
 		{Name: desktopOwnerAuthRole, Permissions: managerPermissions},
 		{Name: desktopAdminAuthRole, Permissions: managerPermissions},
-		{Name: desktopMemberAuthRole, Permissions: router.MachineUserPermissions()},
+		{Name: desktopMemberAuthRole, Permissions: relay.MachineUserPermissions()},
 	}
 }
 
@@ -246,13 +246,13 @@ func desktopUserRoles() []xconn.RealmRole {
 // its access keys and being detached, and get TURN credentials.
 func machinePermissions(authid string) []xconn.Permission {
 	return []xconn.Permission{
-		{URI: "io.xconn.deskconn.desktop.access.key.list", MatchPolicy: router.MatchExact, AllowCall: true},
-		{URI: fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.add", authid), MatchPolicy: router.MatchExact,
+		{URI: "io.xconn.deskconn.desktop.access.key.list", MatchPolicy: relay.MatchExact, AllowCall: true},
+		{URI: fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.add", authid), MatchPolicy: relay.MatchExact,
 			AllowSubscribe: true},
-		{URI: fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.remove", authid), MatchPolicy: router.MatchExact,
+		{URI: fmt.Sprintf("io.xconn.deskconn.desktop.%s.key.remove", authid), MatchPolicy: relay.MatchExact,
 			AllowSubscribe: true},
-		{URI: fmt.Sprintf("io.xconn.deskconn.desktop.%s.detach", authid), MatchPolicy: router.MatchExact,
+		{URI: fmt.Sprintf("io.xconn.deskconn.desktop.%s.detach", authid), MatchPolicy: relay.MatchExact,
 			AllowSubscribe: true},
-		{URI: procedureCoturnCreate, MatchPolicy: router.MatchExact, AllowCall: true},
+		{URI: procedureCoturnCreate, MatchPolicy: relay.MatchExact, AllowCall: true},
 	}
 }

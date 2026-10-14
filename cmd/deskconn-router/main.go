@@ -10,11 +10,11 @@ import (
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/xconnio/deskconn-router/router"
+	"github.com/xconnio/deskconn/relay"
 )
 
 // The Deskconn cloud router with the account service as its backend. To run it with your
-// own accounts, build a main like this one with your own router.Config callbacks.
+// own accounts, build a main like this one with your own relay.Config callbacks.
 func main() {
 	_ = godotenv.Load()
 
@@ -32,7 +32,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	r, err := router.New(ctx, router.Config{
+	r, err := relay.New(ctx, relay.Config{
 		Authenticate:        accounts.authenticate,
 		Machines:            machinesFromDatabase(databaseURL),
 		Roles:               cloudRoles(),

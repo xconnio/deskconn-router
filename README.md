@@ -35,8 +35,9 @@ make run
 
 ## Using your own backend
 
-The router itself, in the `router` package, doesn't depend on the account service. What
-depends on the deployment is left to callbacks in `router.Config`:
+The router itself lives in the `relay` package of [deskconn](https://github.com/xconnio/deskconn)
+and doesn't depend on the account service. What depends on the deployment is left to callbacks
+in `relay.Config`:
 
 | Field                | What you decide                                                                  |
 |----------------------|----------------------------------------------------------------------------------|
@@ -52,18 +53,18 @@ calling `io.xconn.deskconn.realm.add` / `io.xconn.deskconn.realm.remove` (realm,
 `cmd/deskconn-router` plugs in the account service; a minimal router with its own logic looks like this:
 
 ```go
-r, err := router.New(ctx, router.Config{
-	Machines: func(ctx context.Context) ([]router.Machine, error) {
-		return []router.Machine{{AuthID: "office-pc", Realm: "office-pc-realm"}}, nil
+r, err := relay.New(ctx, relay.Config{
+	Machines: func(ctx context.Context) ([]relay.Machine, error) {
+		return []relay.Machine{{AuthID: "office-pc", Realm: "office-pc-realm"}}, nil
 	},
 	Authenticate: func(request auth.Request) (auth.Response, error) {
 		// Look the key up wherever you keep them.
 		if request.AuthID() == "office-pc" {
-			return auth.NewResponse("office-pc", router.MachineAuthRole("office-pc"), 0)
+			return auth.NewResponse("office-pc", relay.MachineAuthRole("office-pc"), 0)
 		}
 		return auth.NewResponse(request.AuthID(), "user", 0)
 	},
-	UserRoles:   []xconn.RealmRole{{Name: "user", Permissions: router.MachineUserPermissions()}},
+	UserRoles:   []xconn.RealmRole{{Name: "user", Permissions: relay.MachineUserPermissions()}},
 	QUICAddress: "0.0.0.0:8081",
 })
 if err != nil {
