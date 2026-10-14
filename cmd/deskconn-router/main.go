@@ -644,6 +644,8 @@ func serveWebTransportCertHash(address, hashBase64 string) {
 func addRealm(router *xconn.Router, rlm string, authid string) error {
 	err := router.AddRealm(rlm, &xconn.RealmConfig{
 		AutoDiscloseCaller: true,
+		// The machine follows its callers leaving (wamp.session.on_leave) to drop their keys.
+		Meta: true,
 		Roles: []xconn.RealmRole{
 			{
 				Name: fmt.Sprintf(desktopAuthRoleFormat, authid),
