@@ -67,12 +67,12 @@ github.com/vmihailenco/tagparser/v2 v2.0.0 h1:y09buUbR+b5aycVFQs/g70pqKVZNBmxwAh
 github.com/vmihailenco/tagparser/v2 v2.0.0/go.mod h1:Wri+At7QHww0WTrCBeu4J6bNtoV6mEfg5OIWRZA9qds=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
-github.com/xconnio/deskconn v0.1.0-alpha.29b0d99 h1:hGBgQFEeyq8XpN0TrZWcfp0xiwS8y0iqf1fs0V+SmJY=
-github.com/xconnio/deskconn v0.1.0-alpha.29b0d99/go.mod h1:B7Ai7ay0S2plGs7lfrB2EbsvmgicxyuSJKIYc4mVWZw=
+github.com/xconnio/deskconn v0.1.0-alpha.6363182 h1:OYnV2XC/JDpom1QhUevYS1PFq0FrxZoZO5A1q3GMUUk=
+github.com/xconnio/deskconn v0.1.0-alpha.6363182/go.mod h1:XLDdru6jgLbd79CeS4g2oDq7QdHZEzKTXoyakvH2HLM=
 github.com/xconnio/wampproto-go v0.0.0-20260623091423-ecb54c6c2318 h1:fwjVJyhVx02dtavXvgxfJu+Sz7XouVlbuJeLMvdReu4=
 github.com/xconnio/wampproto-go v0.0.0-20260623091423-ecb54c6c2318/go.mod h1:k2I4x+dOyJq5XW6SHbnwrqJEuRf/lO9rbF5habINuMM=
-github.com/xconnio/xconn-go v0.1.1-0.20261014081049-1e92c06558da h1:+E1giNsRCnNHR+eSdIPNc3q/2JU8obnOn8Hmf9fbNO8=
-github.com/xconnio/xconn-go v0.1.1-0.20261014081049-1e92c06558da/go.mod h1:HlT+jB6kVsslJWkpE2K4G5zFA8fgMf1pdBoLZx+GAR0=
+github.com/xconnio/xconn-go v0.1.1-0.20261019131605-191a086e99b9 h1:hHFMPMI6nyJS1e9pv7Qo1sehGciSmc3VlJc1Dlg7bMU=
+github.com/xconnio/xconn-go v0.1.1-0.20261019131605-191a086e99b9/go.mod h1:HlT+jB6kVsslJWkpE2K4G5zFA8fgMf1pdBoLZx+GAR0=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 go.uber.org/mock v0.5.2 h1:LbtPTcP8A5k9WPXj54PPPbjcI4Y6lhyOZXn+VS7wNko=

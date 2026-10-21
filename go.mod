@@ -5,9 +5,9 @@ go 1.26.0
 require (
 	github.com/joho/godotenv v1.5.1
 	github.com/sirupsen/logrus v1.9.3
-	github.com/xconnio/deskconn v0.1.0-alpha.29b0d99
+	github.com/xconnio/deskconn v0.1.0-alpha.6363182
 	github.com/xconnio/wampproto-go v0.0.0-20260623091423-ecb54c6c2318
-	github.com/xconnio/xconn-go v0.1.1-0.20261014081049-1e92c06558da
+	github.com/xconnio/xconn-go v0.1.1-0.20261019131605-191a086e99b9
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )
